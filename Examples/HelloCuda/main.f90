@@ -1,6 +1,5 @@
 program testSaxpy
     use mathOps
-    use cudafor
     implicit none
     integer, parameter :: N = 40000
     real :: x(N), y(N), a

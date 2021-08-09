@@ -1,8 +1,7 @@
 module mathOps
-  use cudafor
     implicit none
 contains
-    attributes(global) subroutine saxpy(x, y, a)
+    subroutine saxpy(x, y, a)
         real :: x(:), y(:)
         real, value :: a
         integer :: i, n
