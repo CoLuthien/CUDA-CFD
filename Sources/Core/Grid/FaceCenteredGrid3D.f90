@@ -1,9 +1,9 @@
 module FCGrid
     use, intrinsic :: iso_fortran_env
-    use :: Grid
+    use :: GridBase
     implicit none
 
-    type, extends(Grid) :: FCGrid3D
+    type, extends(Grids) :: FCGrid3D
     
     real(real64), allocatable :: m_point(:, :, :)
     contains
