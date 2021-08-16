@@ -17,11 +17,11 @@ module DiffusionBase
     interface 
     pure subroutine calc_transport_property(self, spcs, spcs_density, mole_fraction, temperature, pressure, density & ! intent(in)
                               , viscosity, turbulent_viscosity, thermal_conductivity, diffusion_quantity) ! intent(out)
-        use :: Species, only:SpecieBase
+        use :: SpecieBase, only:Specie
         use :: ArrayBase
         import TransportProperty
         class(TransportProperty), intent(in) :: self
-        class(SpecieBase), intent(in) :: spcs(:)
+        class(Specie), intent(in) :: spcs(:)
         class(Array4), intent(in) :: spcs_density, mole_fraction
         class(Array3), intent(in) :: temperature, pressure, density
         class(Array4), intent(out) :: diffusion_quantity

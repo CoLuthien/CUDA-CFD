@@ -1,5 +1,5 @@
 program testSaxpy
-    use :: Species
+    use :: SpecieBase
     use :: ArrayBase
     implicit none
     integer, parameter :: N = 40000
@@ -17,8 +17,6 @@ contains
     arr2 = Array(100, 100, 100, 200)
 
 
-    call move(arr1, arr4)
-    call move(arr2, arr5)
     pause
     
     end subroutine test

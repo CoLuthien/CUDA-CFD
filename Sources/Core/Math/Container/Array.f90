@@ -34,8 +34,6 @@ module ArrayBase
         procedure :: get_data3
     end interface
 
-    interface assignment(=)
-    end interface 
     interface Array 
         procedure :: make_array2
         procedure :: make_array3

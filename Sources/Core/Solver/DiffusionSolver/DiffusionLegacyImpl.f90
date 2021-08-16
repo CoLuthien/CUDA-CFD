@@ -16,28 +16,37 @@ contains
     ! every data in or out for  this routine, is non-dimensional quantity
     pure subroutine transport(self, spcs, spcs_density, mole_fraction, temperature, pressure, density & ! intent(in)
                               , viscosity, turbulent_viscosity, thermal_conductivity, diffusion_quantity) ! intent(out)
-        use :: Species, only:SpecieBase
+        use :: SpecieBase, only:Specie
         use :: ArrayBase
         class(TransportLegacy), intent(in) :: self
-        class(SpecieBase), intent(in) :: spcs(:)
+        class(Specie), intent(in) :: spcs(:)
         class(Array4), intent(in) :: spcs_density, mole_fraction
         class(Array3), intent(in) :: temperature, pressure, density
         class(Array4), intent(out) :: diffusion_quantity
         class(Array3), intent(out) :: viscosity, thermal_conductivity, turbulent_viscosity
-        real(real64) :: temp
-        real(real64) :: eu_k(size(spcs)), cd_k(size(spcs)), fi(size(spcs), size(spcs))
-        integer :: i, j, k, l, m
+        real(real64) :: temp, xsm, eu, cd, weight
+        real(real64), dimension(size(spcs)) :: ratio, eu_k, cd_k, c
+        integer :: i, j, k, l, m, n_spc
 
+        n_spc = size(spcs)
+        ! loop for calculating laminar property
+        ! this loop quite difficult to understand,
+        ! to do: change loop range into realistic one
+        do concurrent(i=1:100, j=1:100, k=1:100) local(temp, eu_k, cd_k)
+            c(1:n_spc) = mole_fraction%m_data(i, j, k, 1:n_spc) ! get precalculated mole fraction
+            temp = temperature%get_data(i, j, k) ! get flow field temperature
+            eu_k = abs(spcs(:)%Eu(temp)) ! calculate single component, laminar viscosity coeff
+            cd_k = spcs(:)%Cd(temp) ! calculate single component, laminar thermal conductivity coeff
 
-        do concurrent(i=1:100, j=1:100, k=1:100) local(temp, eu_k, cd_k, fi)
-            temp = temperature%get_data(i, j, k)
-            eu_k = abs(spcs(:)%Eu(temp))
-            cd_k = spcs(:)%Cd(temp)
-            do l = 1, size(spcs)
-                fi(:, l) = (self%fa(:, l) + self%fb(:, l)*sqrt(eu_k(:)/eu_k(l)))**2
+            do m = 1, n_spc
+                ratio(1:n_spc) = eu_k(m) / eu_k(:) ! get viscosity coeff ratio for this spc
+                weight = spcs(m)%get_scale_factor(ratio(:), c(:)) ! get weighting factor for this spc
+                xsm = c(m)/weight
+                eu = eu + xsm*eu_k(m)
+                cd = cd + xsm*cd_k(m)
             end do
-
-            ! calculate cd, eu 
+            viscosity%m_data(i, j, k) = eu
+            thermal_conductivity%m_data(i, j, k) = cd
         end do  
 
 

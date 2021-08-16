@@ -1,6 +1,7 @@
 module SolverBase
     use, intrinsic :: iso_fortran_env
     use :: GridBase
+    use :: SpecieBase
     implicit none
 
     type, abstract :: Solver
