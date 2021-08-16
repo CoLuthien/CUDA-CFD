@@ -4,7 +4,7 @@ module SolverBase
     implicit none
 
     type, abstract :: Solver
-    class(Grids), allocatable :: m_grid
+        class(Grids), allocatable :: m_grid
     contains
     end type Solver
 end module

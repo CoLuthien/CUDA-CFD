@@ -8,23 +8,24 @@ module DiffusionBase
     end type DiffusionSolver
 
     type, abstract :: TransportProperty
+        real(real64), allocatable, dimension(:, :) :: fa, fb ! todo=>change this damn things name
     contains
         procedure(calc_transport_property), pass, deferred :: transport
         !procedure(calc_viscosity), private, deferred :: viscosity
     end type TransportProperty
 
     interface 
-    pure subroutine calc_transport_property(self &
-                              , spcs, spcs_density, temperature, pressure, density &
-                              , viscosity, thermal_conductivity)
+    pure subroutine calc_transport_property(self, spcs, spcs_density, mole_fraction, temperature, pressure, density & ! intent(in)
+                              , viscosity, turbulent_viscosity, thermal_conductivity, diffusion_quantity) ! intent(out)
         use :: Species, only:SpecieBase
         use :: ArrayBase
         import TransportProperty
         class(TransportProperty), intent(in) :: self
         class(SpecieBase), intent(in) :: spcs(:)
-        type(Array4), intent(in) :: spcs_density
-        type(Array3), intent(in) :: temperature, pressure, density
-        type(Array3), allocatable, intent(out):: viscosity, thermal_conductivity
+        class(Array4), intent(in) :: spcs_density, mole_fraction
+        class(Array3), intent(in) :: temperature, pressure, density
+        class(Array4), intent(out) :: diffusion_quantity
+        class(Array3), intent(out) :: viscosity, thermal_conductivity, turbulent_viscosity
     end subroutine calc_transport_property
     end interface
     !interface
