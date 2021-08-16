@@ -22,8 +22,8 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/lib)
 
 # Set enable output of compile commands during generation
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-set(CMAKE_Fortran_FLAGS 
-    "-Mcuda")
+set(CMAKE_Fortran_FLAGS
+    "-qopenmp")
 
 
 
@@ -37,7 +37,7 @@ message(STATUS "CMake build type: ${CMAKE_BUILD_TYPE}")
 
 # CUDA
 option(USE_CUDA "Use CUDA features" ON)
-set(CUDA_CRT_LINKAGE "dynamic" CACHE STRING 
+set(CUDA_CRT_LINKAGE "dynamic" CACHE STRING
                      "CUDA targets' CRT options. For 'static', use /MT or /MTd. For 'dynamic', use /MD or /MDd")
 if (USE_CUDA)
     set(CUDA_LINK_LIBRARIES_KEYWORD PUBLIC)
@@ -115,7 +115,7 @@ add_subdirectory(Sources/Core)
 
 add_subdirectory(Examples/HelloCuda)
 if (USE_CUDA)
-    add_subdirectory(Examples/HelloCuda)
+    #add_subdirectory(Examples/HelloCuda)
 endif()
 
 #if (NOT BUILD_SONARCLOUD)
