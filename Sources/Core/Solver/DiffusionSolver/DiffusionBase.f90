@@ -5,10 +5,10 @@ module DiffusionBase
     type, abstract :: DiffusionSolver
         class(TransportProperty), pointer :: m_transport
     contains
+        procedure, pass :: solve_diffusion
     end type DiffusionSolver
 
     type, abstract :: TransportProperty
-        real(real64), allocatable, dimension(:, :) :: fa, fb ! todo=>change this damn things name
     contains
         procedure(calc_transport_property), pass, deferred :: transport
         !procedure(calc_viscosity), private, deferred :: viscosity
@@ -28,14 +28,11 @@ module DiffusionBase
         class(Array3), intent(out) :: viscosity, thermal_conductivity, turbulent_viscosity
     end subroutine calc_transport_property
     end interface
-    !interface
-    !    pure subroutine calc_viscosity(spcs)
-    !        import TransportProperty
-    !        use :: Species, only:SpecieBase
-    !        implicit none(type, external)
-    !        class(SpecieBase), intent(in) :: spcs(:)
-    !    end subroutine calc_viscosity
-    !end interface
 contains
+    subroutine solve_diffusion(self)
+        implicit none
+        class(DiffusionSolver),intent(in) :: self
+
+    end subroutine 
 
 end module DiffusionBase

@@ -32,7 +32,7 @@ contains
         ! loop for calculating laminar property
         ! this loop quite difficult to understand,
         ! to do: change loop range into realistic one
-        do concurrent(i=1:100, j=1:100, k=1:100) local(temp, eu_k, cd_k)
+        do concurrent(i=1:100, j=1:100, k=1:100) local(temp, eu_k, cd_k, weight, eu, cd, xsm)
             c(1:n_spc) = mole_fraction%m_data(i, j, k, 1:n_spc) ! get precalculated mole fraction
             temp = temperature%get_data(i, j, k) ! get flow field temperature
             eu_k = abs(spcs(:)%Eu(temp)) ! calculate single component, laminar viscosity coeff
@@ -48,6 +48,7 @@ contains
             viscosity%m_data(i, j, k) = eu
             thermal_conductivity%m_data(i, j, k) = cd
         end do  
+        ! todo : calculate diffusion quantity and turbulent viscosity
 
 
     end subroutine transport
