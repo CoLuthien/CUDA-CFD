@@ -3,6 +3,7 @@ module ArrayBase
     use :: Vector
     implicit none
 
+    !todo, implement generic finalizing interface for array2~4
 
     type :: Array2
         integer :: m_size(2) ! a vector to represent array dimension

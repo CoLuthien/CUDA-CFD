@@ -4,11 +4,13 @@ module SolverBase
     use :: SpecieBase
     use :: AdvectionBase
     use :: DiffusionBase
+    use :: ChemistryBase
     implicit none
 
     type :: Solver
         class(AdvectionSolver), allocatable :: m_advection
         class(DiffusionSolver), allocatable :: m_diffusion
+        class(ChemistrySolver), allocatable :: m_chemistry
         class(Grid3D), allocatable :: m_grid
     contains
         procedure :: set_grid
@@ -24,8 +26,10 @@ contains
     subroutine solve(self)
         class(Solver), intent(in) :: self
 
+        ! todo : add things to solve
         !call self%m_diffusion%solve_diffusion
         !call self%m_advection%solve_advection
+
     end subroutine solve
 
     subroutine calc_dt(self, grid, dt)

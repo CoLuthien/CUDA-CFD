@@ -7,7 +7,7 @@ module DiffusionImpl
 
     type, extends(DiffusionSolver) :: DiffusionLegacy
     contains
-        procedure :: solve_diffusion => diffusion
+        !procedure :: solve_diffusion => diffusion
         procedure :: diffusive_flux => legacy_diffusive_flux
     end type DiffusionLegacy
 
@@ -29,13 +29,13 @@ contains
         print*, "foo"
     end subroutine legacy_diffusive_flux
     ! every data in or out for  this routine, is non-dimensional quantity
-    pure subroutine transport(self, spcs, spcs_density, mole_fraction, temperature, pressure, density & ! intent(in)
-                              , viscosity, turbulent_viscosity, thermal_conductivity, diffusion_quantity) ! intent(out)
+    pure subroutine transport(self, spcs, spcs_density, temperature, pressure, density & ! intent(in)
+                              , viscosity, turbulent_viscosity, thermal_conductivity, diffusion_coefficient) ! intent(out)
         class(TransportLegacy), intent(in) :: self
         class(Specie), intent(in) :: spcs(:)
-        class(Array4), intent(in) :: spcs_density, mole_fraction
+        class(Array4), intent(in) :: spcs_density
         class(Array3), intent(in) :: temperature, pressure, density
-        type(Array4), intent(out) :: diffusion_quantity
+        type(Array4), intent(out) :: diffusion_coefficient
         type(Array3), intent(out) :: viscosity, thermal_conductivity, turbulent_viscosity
         real(real64) :: temp, xsm, eu, cd, weight
         real(real64), dimension(size(spcs)) :: ratio, eu_k, cd_k, c
@@ -46,7 +46,9 @@ contains
         ! this loop quite difficult to understand,
         ! to do: change loop range into realistic one
         do concurrent(i=1:100, j=1:100, k=1:100) !local(temp, eu_k, cd_k, weight, eu, cd, xsm)
-            c(1:n_spc) = mole_fraction%m_data(i, j, k, 1:n_spc) ! get precalculated mole fraction
+    ! calculatie mole fraction
+            c(1:n_spc) = spcs_density%m_data(i, j, k, 1:n_spc) * spcs(1:n_spc)%molar_weight 
+
             temp = temperature%get_data(i, j, k) ! get flow field temperature
             eu_k = abs(spcs(:)%Eu(temp)) ! calculate single component, laminar viscosity coeff
             cd_k = spcs(:)%Cd(temp) ! calculate single component, laminar thermal conductivity coeff
