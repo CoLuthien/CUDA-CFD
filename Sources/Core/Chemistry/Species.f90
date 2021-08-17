@@ -1,6 +1,6 @@
 module SpecieBase
     use, intrinsic :: iso_fortran_env
-    implicit none(type, external)
+    implicit none
     type, abstract :: Specie
         real(real64) :: molar_weight
         real(real64) :: molar_hof, mass_hof ! heat of formation

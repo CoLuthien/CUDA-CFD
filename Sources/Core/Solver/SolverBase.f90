@@ -9,15 +9,29 @@ module SolverBase
     type :: Solver
         class(AdvectionSolver), allocatable :: m_advection
         class(DiffusionSolver), allocatable :: m_diffusion
-        class(Grids), allocatable :: m_grid
+        class(Grid3D), allocatable :: m_grid
     contains
-    procedure :: solve
+        procedure :: set_grid
+        procedure :: solve
+        procedure :: calc_dt
     end type Solver
 
-    contains
+contains
+
+    subroutine set_grid(self)
+        class(Solver), intent(inout) :: self
+    end subroutine
     subroutine solve(self)
-        implicit none
-        class(Solver),intent(in) :: self
-    
+        class(Solver), intent(in) :: self
+
+        !call self%m_diffusion%solve_diffusion
+        !call self%m_advection%solve_advection
     end subroutine solve
+
+    subroutine calc_dt(self, grid, dt)
+        class(Solver), intent(in) :: self
+        class(Grid3D), intent(in) :: grid
+        real(real64), intent(out) :: dt
+
+    end subroutine calc_dt
 end module

@@ -3,9 +3,8 @@ module FCGrid
     use :: GridBase
     implicit none
 
-    type, extends(Grids) :: FCGrid3D
+    type, extends(Grid3D) :: FCGrid3D
     
-    real(real64), allocatable :: m_point(:, :, :)
     contains
         procedure, pass :: read => read_grid
         procedure, pass:: interpolate => interpolate
