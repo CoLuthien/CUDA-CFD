@@ -16,8 +16,6 @@ contains
     ! every data in or out for  this routine, is non-dimensional quantity
     pure subroutine transport(self, spcs, spcs_density, mole_fraction, temperature, pressure, density & ! intent(in)
                               , viscosity, turbulent_viscosity, thermal_conductivity, diffusion_quantity) ! intent(out)
-        use :: SpecieBase, only:Specie
-        use :: ArrayBase
         class(TransportLegacy), intent(in) :: self
         class(Specie), intent(in) :: spcs(:)
         class(Array4), intent(in) :: spcs_density, mole_fraction
@@ -47,7 +45,7 @@ contains
             end do
             viscosity%m_data(i, j, k) = eu
             thermal_conductivity%m_data(i, j, k) = cd
-        end do  
+        end do
         ! todo : calculate diffusion quantity and turbulent viscosity
 
 

@@ -6,13 +6,14 @@ module SolverBase
     use :: DiffusionBase
     implicit none
 
-    type, abstract :: Solver
+    type :: Solver
         class(AdvectionSolver), allocatable :: m_advection
         class(DiffusionSolver), allocatable :: m_diffusion
         class(Grids), allocatable :: m_grid
     contains
     procedure :: solve
     end type Solver
+
     contains
     subroutine solve(self)
         implicit none
