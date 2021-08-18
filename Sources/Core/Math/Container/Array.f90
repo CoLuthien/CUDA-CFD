@@ -37,7 +37,11 @@ module ArrayBase
 
     interface Array 
         procedure :: make_array2
-        procedure :: make_array3
+        ! for 3d constructor
+        procedure :: make_array3 ! copy size and allocate same shape 
+        procedure :: make_array3_move 
+
+    ! for 4d
         procedure :: make_array4
         procedure :: make_array4_size
     end interface Array
@@ -58,6 +62,15 @@ contains
         to%m_size = from%m_size
         allocate(to%m_data, mold=from%m_data)
     end function make_array3
+
+    function make_array3_move(from) result(to)
+        real(real64), intent(inout), allocatable :: from(:, :, :)
+        class(Array3), allocatable :: to 
+        print* , " hi"
+        allocate(to)
+        to%m_size = size(from)
+        call move_alloc(from, to%m_data)
+    end function
 
     pure function make_array4(from) result(to)
         class(Array4), intent(in) :: from

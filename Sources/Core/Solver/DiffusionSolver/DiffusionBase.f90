@@ -2,7 +2,8 @@ module DiffusionBase
     use, intrinsic :: iso_fortran_env
     implicit none
 
-    type, abstract :: DiffusionSolver
+    type, abstract :: DiffusionSolver(n_spc)
+        integer, len :: n_spc
         class(TransportProperty), pointer :: m_transport
     contains
         procedure, pass :: solve_diffusion
@@ -12,13 +13,12 @@ module DiffusionBase
     type, abstract :: TransportProperty
     contains
         procedure(calc_transport_property), pass, deferred :: transport
-        !procedure(calc_viscosity), private, deferred :: viscosity
     end type TransportProperty
 
     interface
         subroutine calc_diffusive_flux(self)
             import DiffusionSolver
-            class(DiffusionSolver), intent(in) :: self
+            class(DiffusionSolver(*)), intent(in) :: self
         end subroutine
         pure subroutine calc_transport_property(self, spcs, spcs_density, temperature, pressure, density & ! intent(in)
                                                 , viscosity, turbulent_viscosity, thermal_conductivity, diffusion_coefficient) ! intent(out)
@@ -33,17 +33,18 @@ module DiffusionBase
             type(Array3), intent(out) :: viscosity, thermal_conductivity, turbulent_viscosity
         end subroutine calc_transport_property
     end interface
+
 contains
 
     subroutine solve_diffusion(self, prim, conserv, metrics, spcs)
         use :: ArrayBase
-        use :: GridBase, only:Grid3D, PrimitiveData3D, ConservedData3D, MetricData3D
+        use :: GridBase, only:Grid3D, PrimitiveData3D, ConservedData3D, CellMetricData3D
         use :: SpecieBase, only:Specie
-        class(DiffusionSolver), intent(in) :: self
-        class(MetricData3D), intent(in) :: metrics
+        class(DiffusionSolver(*)), intent(in) :: self
+        class(CellMetricData3D), intent(in) :: metrics
         class(PrimitiveData3D), intent(in) :: prim
         class(ConservedData3D), intent(inout) :: conserv
-        class(Specie), intent(in) :: spcs(:)
+        class(Specie), intent(in) :: spcs(self%n_spc)
         type(Array4) :: diffusion_coefficient
         type(Array3) :: viscosity, thermal_conductivity, turbulent_viscosity
 

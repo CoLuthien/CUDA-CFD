@@ -4,24 +4,23 @@ module FCGrid
     implicit none
 
     type, extends(Grid3D) :: FCGrid3D
-    
-    contains
-        procedure, pass :: read => read_grid
-        procedure, pass:: interpolate => interpolate
-        procedure, pass :: make_volume => calc_volume
+
     end type FCGrid3D
 
+    interface FCGrid3D
+        procedure :: init_fcgrid3d
+    end interface
+
 contains
+    function init_fcgrid3d(x, y, z, data) result(self)
+        real(real64), allocatable, dimension(:, :, :) :: x, y, z
+        type(FCGrid3D(:)), allocatable :: self
+        class(InitialCondition(*)), intent(in) :: data
 
-    subroutine read_grid(self, file_name)
-        class(FCGrid3D), intent(in) :: self
-        character(len=*), intent(in) :: file_name
-    end subroutine read_grid
+        allocate (FCGrid3D(data%n_spc)::self)
+        call self%set_geometry(x, y, z)
+        call self%set_data(data)
+        ! todo => calculate cell metrics..
 
-    subroutine calc_volume(self)
-        class(FCGrid3D), intent(in) :: self
-    end subroutine calc_volume
-    subroutine interpolate(self)
-        class(FCGrid3D), intent(in) :: self
-    end subroutine interpolate
+    end function
 end module FCGrid

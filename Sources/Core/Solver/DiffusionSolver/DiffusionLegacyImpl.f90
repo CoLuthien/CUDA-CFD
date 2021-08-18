@@ -14,19 +14,17 @@ module DiffusionImpl
     type, extends(TransportProperty) :: TransportLegacy
     contains
         procedure :: transport
-        !procedure :: viscosity
     end type TransportLegacy
 
 contains
 
     subroutine diffusion(self)
-        class(DiffusionLegacy), intent(in) :: self
+        class(DiffusionLegacy(*)), intent(in) :: self
         call self%diffusive_flux()
     end subroutine
 
     subroutine legacy_diffusive_flux(self)
-        class(DiffusionLegacy), intent(in) :: self
-        print*, "foo"
+        class(DiffusionLegacy(*)), intent(in) :: self
     end subroutine legacy_diffusive_flux
     ! every data in or out for  this routine, is non-dimensional quantity
     pure subroutine transport(self, spcs, spcs_density, temperature, pressure, density & ! intent(in)
@@ -45,8 +43,8 @@ contains
         ! loop for calculating laminar property
         ! this loop quite difficult to understand,
         ! to do: change loop range into realistic one
-        do concurrent(i=1:100, j=1:100, k=1:100) !local(temp, eu_k, cd_k, weight, eu, cd, xsm)
-    ! calculatie mole fraction
+        do concurrent(i=1:5, j=1:5, k=1:5) local(temp, eu_k, cd_k, weight, eu, cd, xsm)
+            ! calculatie mole fraction, non-dimensional
             c(1:n_spc) = spcs_density%m_data(i, j, k, 1:n_spc) * spcs(1:n_spc)%molar_weight 
 
             temp = temperature%get_data(i, j, k) ! get flow field temperature

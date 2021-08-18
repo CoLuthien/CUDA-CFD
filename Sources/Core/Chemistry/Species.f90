@@ -5,23 +5,40 @@ module SpecieBase
         real(real64) :: molar_weight
         real(real64) :: molar_hof, mass_hof ! heat of formation
         real(real64) :: molar_diam !molecular diameter
-        real(real64) :: chrt_temp ! charateristic temperature
-        real(real64), allocatable :: f1(:), f2(:) ! by doi:10.2514/6.2013-303, calculating scaling factor for ...
+        real(real64) :: characteristic_temp ! charateristic temperature
+        real(real64), allocatable, private :: f1(:), f2(:) ! by doi:10.2514/6.2013-303, calculating scaling factor for ...
     contains
+        ! some  eqns are based on mass fraction, rather than mole fraction (ex. Fick's 1st law of diffusion)
+        ! converting such eqns into mole fraction base are tooooo cumbersome,
+        ! so we will provide a way of getting mass base property
+
+    ! Todo: add entrophy, etc
         procedure(entalphy), deferred, pass :: H
         procedure(kinematic_viscosity), deferred, pass :: Eu
         procedure(kinematic_conductivity), deferred, pass :: Cd
+
+        procedure(entalphy), deferred, pass :: H_mass
+        procedure(kinematic_viscosity), deferred, pass :: Eu_mass
+        procedure(kinematic_conductivity), deferred, pass :: Cd_mass
+
         procedure, pass, private :: calc_mixture_scale_coef
         procedure, pass :: get_scale_factor
     end type Specie
 
     type, extends(Specie) :: SpecieNasa7
-        real(real64), dimension(7, 2) :: poly_cp, poly_h, poly_s
-        real(real64), dimension(5) :: poly_vis, poly_cd
+        real(real64), dimension(7, 2) :: poly_cp, poly_h, poly_s ! mole based non-dimensinal poly-coefficients
+        real(real64), dimension(5) :: poly_vis, poly_cd ! mole base non-dimensional poly
+
+        real(real64), dimension(7, 2) :: poly_cp_m, poly_h_m, poly_s_m ! mole based non-dimensinal poly-coefficients
+        real(real64), dimension(5) :: poly_vis_m, poly_cd_m ! mole base non-dimensional poly
     contains
         procedure :: H => entalphy7
         procedure :: Eu => viscosity5
         procedure :: Cd => conductivity5
+
+        procedure :: H_mass => entalphy7
+        procedure :: Eu_mass => viscosity5
+        procedure :: Cd_mass => conductivity5
     end type SpecieNasa7
 
     interface
@@ -83,13 +100,13 @@ contains
         real(real64), dimension(size(spcs)) :: factor1, factor2, alpha, beta
         ! 1.0 / sqrt(8 * (1 + mw(mine) / mw(others...))
         alpha(:) = 1.d0 &
-                   / sqrt(8.d0 * (1.d0 + self%molar_weight / spcs(:)%molar_weight))
+                   /sqrt(8.d0*(1.d0 + self%molar_weight/spcs(:)%molar_weight))
 
         ! mw(others ...) / mw(mine)
-        beta(:) = spcs(:)%molar_weight / self%molar_weight
+        beta(:) = spcs(:)%molar_weight/self%molar_weight
 
-        factor1(:) = alpha * (beta**2.d0)
-        factor2(:) = (2.d0 * beta + 1.d0) * alpha
+        factor1(:) = alpha*(beta**2.d0)
+        factor2(:) = (2.d0*beta + 1.d0)*alpha
 
         self%f1 = factor1
         self%f2 = factor2
@@ -101,8 +118,8 @@ contains
         real(real64), intent(in) :: ratio(:), molar_concent(:)
         real(real64) :: weight
         ! now m_r * rest of term (in eqn 2)
-        weight = sum(molar_concent(1:) & 
-            * (ratio(1:) * self%f1(1:) + sqrt(ratio) * self%f2(1)))
+        weight = sum(molar_concent(1:) &
+                     *(ratio(1:)*self%f1(1:) + sqrt(ratio)*self%f2(1:)))
     end function
 
 end module SpecieBase

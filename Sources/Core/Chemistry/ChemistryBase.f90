@@ -3,8 +3,8 @@ module ChemistryBase
     use :: SpecieBase, only : Specie
     implicit none
 
-    ! todo : writing down a interface 
-    type, abstract :: ChemistrySolver
+    type, abstract :: ChemistrySolver(n_spc)
+        integer, len :: n_spc
         class(Specie), allocatable :: spcs(:)
     end type ChemistrySolver
 end module
