@@ -26,6 +26,7 @@ contains
     subroutine legacy_diffusive_flux(self)
         class(DiffusionLegacy(*)), intent(in) :: self
     end subroutine legacy_diffusive_flux
+
     ! every data in or out for  this routine, is non-dimensional quantity
     pure subroutine transport(self, spcs, spcs_density, temperature, pressure, density & ! intent(in)
                               , viscosity, turbulent_viscosity, thermal_conductivity, diffusion_coefficient) ! intent(out)
