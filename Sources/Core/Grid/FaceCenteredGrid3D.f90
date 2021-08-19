@@ -22,13 +22,18 @@ contains
         print*, "initializing FCGrid3D..."
         allocate (FCGrid3D(data%n_spc)::self)
         self%m_resolution = resolution
-
+        print*, "Calculating ghost points..."
         call self%set_geometry(x, y, z)
+
+        print*, "Ghost point calculation done..."
+
         call self%set_data(data)
         ! todo => calculate cell metrics..
+        print*, "Calculating Cell metrics..."
         associate (x => self%x, y => self%y, z => self%z)
             self%m_metrics = CellMetricData3D(x, y, z, resolution)
         end associate
+        print*, "Cell metrics calculation done..."
 
         print*, "FCGrid3D initialized..."
     end function

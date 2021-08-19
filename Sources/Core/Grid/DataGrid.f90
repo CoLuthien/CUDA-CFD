@@ -54,7 +54,7 @@ contains
             self%dely, &
             source=self%sx)
 
-        do concurrent(i=1:resolution(1), j=1:resolution(2), k=1:resolution(3)) shared(x, y, z) local(a, b, c, d, e, f, g, h)
+        do concurrent(i=1:resolution(1), j=1:resolution(2), k=1:resolution(3)) local(a, b, c, d, e, f, g, h)
             block
                 real(real64) :: xaa, xbb, xcc, xdd, xee, xff, xgg, xhh, &
                                 yaa, ybb, ycc, ydd, yee, yff, ygg, yhh, &
@@ -109,12 +109,8 @@ contains
 
     end function
 
-    subroutine calc_metrics()
-        integer :: i, j, k
-    end subroutine
-
     pure subroutine calc_center_point(pt, i, j, k, a, b, c, d, e, f, g, h)
-        real(real64), intent(in), dimension(:, :, :) :: pt
+        real(real64), intent(in), dimension(:, :, :), allocatable :: pt
         integer, intent(in) :: i, j, k
         real(real64), intent(out) :: a, b, c, d, e, f, g, h
         integer :: ipp, jpp, kpp, imm, jmm, kmm
