@@ -24,9 +24,10 @@ contains
         allocate (FCGrid3D(n_spc)::self)
 
         self%m_resolution = resolution
+        call set_geometry(self, x, y, z)
 
         print *, "Calculating ghost points..."
-        call set_geometry(self, x, y, z)
+        call calculate_ghost_points(self)
         print *, "Ghost point calculation done..."
 
         print *, "Calculating Cell metrics..."

@@ -15,9 +15,7 @@ module GridBase
         class(PrimitiveData3D), allocatable :: m_primitives
         class(ConservedData3D), allocatable :: m_conservatives
     contains
-        procedure :: set_geometry
         procedure :: set_data
-        procedure :: calculate_ghost_points
     end type
 
 contains
@@ -206,12 +204,9 @@ contains
     subroutine set_geometry(self, x, y, z)
         class(Grid3D(*)) :: self
         real(real64), allocatable, dimension(:, :, :) :: x, y, z
-
         self%x = Array3(x)
         self%y = Array3(y)
         self%z = Array3(z)
-        call calculate_ghost_points(self)
-
     end subroutine set_geometry
 
     subroutine set_data(self, cond)
