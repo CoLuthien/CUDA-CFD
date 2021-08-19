@@ -1,29 +1,28 @@
 module GridBase
-    use, intrinsic :: iso_fortran_env
-    use :: DataGrid
     use :: ArrayBase
     use :: Constants
+    use :: DataGrid
+    use, intrinsic :: iso_fortran_env
     implicit none
 
+
     type, abstract :: Grid3D(n_spc)
-    integer, len :: n_spc = -1
-    integer:: m_resolution(3)
-    real(real64) :: m_origin(3)
-    class(Array3), allocatable :: x, y, z
-    class(CellMetricData3D), allocatable :: m_metrics
-    class(PrimitiveData3D), allocatable :: m_primitives
-    class(ConservedData3D), allocatable :: m_conservatives
-contains
-    procedure, public :: set_geometry
-    procedure :: set_data
-    procedure ::  calculate_ghost_points
-    end type Grid3D
-
-    private :: set_geometry
+        integer, len :: n_spc
+        integer :: m_resolution(3)
+        real(real64) :: m_origin(3)
+        class(Array3), allocatable :: x, y, z
+        class(CellMetricData3D), allocatable :: m_metrics
+        class(PrimitiveData3D), allocatable :: m_primitives
+        class(ConservedData3D), allocatable :: m_conservatives
     contains
+        procedure :: set_geometry
+        procedure :: set_data
+        procedure :: calculate_ghost_points
+    end type
 
+contains
     subroutine calculate_ghost_points(self)
-        class(Grid3D(*)) :: self
+        class(Grid3D(*)), intent(inout) :: self
         type(Vector3), allocatable :: pts(:, :, :)
         type(Vector3) :: point
         integer :: nx, ny, nz, i, j, k
@@ -68,14 +67,14 @@ contains
                                   self%z%m_data(1:, 1:, 1:))
 
         !---- Ghost Mesh Points of Bottom/Top Surface
-        do concurrent(i=1:nx, j=1:ny) local(point)
+        do concurrent(i=1:nx, j=1:ny) !!local(point)
             pts(i, j, kbm) = 2.d0*pts(i, j, ib) - pts(i, j, ibp)
 
             pts(i, j, kep) = 2.d0*pts(i, j, ke) - pts(i, j, kem)
         end do
 
-!---- Ghost Mesh Points of Right/Left Surface
-        do concurrent(i=1:nx, k=1:nz) local(point)
+        !---- Ghost Mesh Points of Right/Left Surface
+        do concurrent(i=1:nx, k=1:nz) !local(point)
             pts(i, jbm, k) = 2.d0*pts(i, jb, k) - pts(i, jbp, k)
 
             pts(i, jep, k) = 2.d0*pts(i, je, k) - pts(i, jem, k)
@@ -88,7 +87,7 @@ contains
 
         end do
 
-!---- Ghost Mesh Points of i-direction edge
+        !---- Ghost Mesh Points of i-direction edge
 
         do concurrent(i=ib:ie)
             pts(i, jbm, kbm) = (2.d0 &
@@ -206,17 +205,18 @@ contains
 
     subroutine set_geometry(self, x, y, z)
         class(Grid3D(*)) :: self
-        real(real64), dimension(:, :, :), allocatable :: x, y, z
+        real(real64), allocatable, dimension(:, :, :) :: x, y, z
 
-        self%x = Array(x)
-        self%y = Array(y)
-        self%z = Array(z)
-        call self%calculate_ghost_points()
+        self%x = Array3(x)
+        self%y = Array3(y)
+        self%z = Array3(z)
+        call calculate_ghost_points(self)
 
     end subroutine set_geometry
 
-    subroutine set_data(self, data)
+    subroutine set_data(self, cond)
         class(Grid3D(*)) :: self
-        class(InitialCondition(*)) :: data
+        type(InitialCondition(*)), intent(in) :: cond
     end subroutine
+
 end module GridBase

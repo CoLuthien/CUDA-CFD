@@ -1,9 +1,11 @@
 module DataGrid
     use :: ArrayBase
     use :: Vector
+    use :: Constants
     implicit none
     public
     type :: PrimitiveData3D
+        integer :: m_resolution(3)
         class(Array4), allocatable :: rhok ! density for each spc
         class(Array3), allocatable :: u, v, w
         class(Array3), allocatable :: e, t, p, a, rho
@@ -11,6 +13,7 @@ module DataGrid
     end type
 
     type :: ConservedData3D
+        integer :: m_resolution(3)
         class(Array4), allocatable :: rhok
         class(Array3), allocatable :: u_momentum, v_momentum, w_momentum
         class(Array3), allocatable :: e
@@ -19,6 +22,7 @@ module DataGrid
 
     type :: CellMetricData3D
         integer :: m_resolution(3)
+        ! all member only used in calculation domain
         class(Array3), allocatable :: sx, sy, sz
         class(Array3), allocatable :: ex, ey, ez
         class(Array3), allocatable :: cx, cy, cz
@@ -30,6 +34,13 @@ module DataGrid
 
     interface CellMetricData3D
         procedure :: init_cell_metrics
+    end interface
+
+    interface PrimitiveData3D
+        module procedure :: init_prim3d_data
+    end interface
+    interface ConservedData3D
+        module procedure :: init_consrv3d_data
     end interface
 
 contains
@@ -54,7 +65,7 @@ contains
             self%dely, &
             source=self%sx)
 
-        do concurrent(i=1:resolution(1), j=1:resolution(2), k=1:resolution(3)) local(a, b, c, d, e, f, g, h)
+        do concurrent(i=1:resolution(1), j=1:resolution(2), k=1:resolution(3)) !local(a, b, c, d, e, f, g, h)
             block
                 real(real64) :: xaa, xbb, xcc, xdd, xee, xff, xgg, xhh, &
                                 yaa, ybb, ycc, ydd, yee, yff, ygg, yhh, &
@@ -160,5 +171,51 @@ contains
                   + pt(ipp ,jpp, kpp) + pt(i  , jpp, kpp))
         !&>
     end subroutine calc_center_point
+
+    function init_prim3d_data(cond, geometry_reference, resolution) result(self)
+        type(InitialCondition(*)), intent(in) :: cond
+        class(Array3), intent(in) :: geometry_reference
+        type(PrimitiveData3D) :: self
+        integer, intent(in) :: resolution(3)
+        integer :: lb(3), n_spc, ub(3) 
+
+        self%m_resolution = resolution
+
+        lb = lbound(geometry_reference%m_data)
+        ub = ubound(geometry_reference%m_data)
+        n_spc = cond%n_spc
+
+        self%rhok = Array4([lb(:), 1], [ub(:), n_spc])
+
+        self%u = Array3(lb, ub)
+
+        allocate ( &
+            self%v, self%w, self%a, &
+            self%e, self%t, self%p, &
+            self%tk, self%tw, self%tv, &
+            self%rho, source=self%u)
+
+    end function
+
+    function init_consrv3d_data( cond, geometry_reference, resolution) result(self)
+        type(InitialCondition(*)), intent(in) :: cond
+        class(Array3), intent(in) :: geometry_reference
+        type(ConservedData3D) :: self
+        integer, intent(in) :: resolution(3)
+        integer :: lb(3), n_spc, ub(3)
+        lb = lbound(geometry_reference%m_data)
+        ub = ubound(geometry_reference%m_data)
+        n_spc = cond%n_spc
+        self%m_resolution = resolution
+        self%rhok = Array4([lb(:), 1], [ub(:), n_spc])
+
+        self%u_momentum = Array3(lb, ub)
+
+        allocate ( &
+            self%v_momentum, self%w_momentum, &
+            self%e, &
+            self%tk, self%tw, &
+            source=self%u_momentum)
+    end function
 
 end module DataGrid

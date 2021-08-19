@@ -34,22 +34,18 @@ module ArrayBase
         procedure :: get_data3
     end interface
 
-    interface Array
-        procedure :: make_array2
-        ! for 3d constructor
-        procedure :: make_array3 ! copy size and allocate same shape
-        procedure :: make_array3_size
-        procedure :: make_array3_move
-
-        ! for 4d
-        procedure :: make_array4
-        procedure :: make_array4_size
-    end interface Array
 
     interface Array3
-        procedure :: make_array3 ! copy size and allocate same shape
-        procedure :: make_array3_size
-        procedure :: make_array3_move
+        module procedure :: make_array3 ! copy size and allocate same shape
+        module procedure :: make_array3_size
+        module procedure :: make_array3_move
+        module procedure :: make_array3_bound
+    end interface
+
+    interface Array4
+        module procedure :: make_array4
+        module procedure :: make_array4_size
+        module procedure :: make_array4_bound
     end interface
 
 contains
@@ -66,14 +62,14 @@ contains
         class(Array3), intent(in) :: from
         type(Array3) :: to
         !allocate (to)
-        print*, "shape copy"
+        print *, "shape copy"
         to%m_size = from%m_size
         allocate (to%m_data, mold=from%m_data)
     end function make_array3
     function make_array3_size(i, j, k) result(arr)
         integer, intent(in) :: i, j, k
         type(Array3) :: arr
-        print*, "new from size"
+        print *, "new from size"
         arr%m_size = [i, j, k]
         allocate (arr%m_data(i, j, k))
     end function
@@ -81,9 +77,23 @@ contains
     function make_array3_move(from) result(to)
         real(real64), intent(inout), allocatable :: from(:, :, :)
         type(Array3) :: to
-        print*, " move"
+        print *, " move"
         to%m_size = size(from)
         call move_alloc(from, to%m_data)
+    end function
+
+    function make_array3_bound(lb, ub) result(arr)
+        integer, intent(in) :: lb(3), ub(3)
+        integer :: resolution(3)
+        type(Array3) :: arr
+
+        resolution = ub(:) - lb(:) + 1
+
+        arr%m_size = resolution
+
+        allocate (arr%m_data(lb(1):ub(1), &
+                             lb(2):ub(2), &
+                             lb(3):ub(3)))
     end function
 
     pure function make_array4(from) result(to)
@@ -100,6 +110,22 @@ contains
         allocate (arr)
         arr%m_size = [i, j, k, l]
         allocate (arr%m_data(i, j, k, l))
+    end function
+
+    function make_array4_bound(lb, ub) result(arr)
+        integer, intent(in) :: lb(4), ub(4)
+        integer :: resolution(4)
+        type(Array4) :: arr
+
+        resolution = ub(:) - lb(:) + 1
+
+        arr%m_size = resolution
+
+        allocate (arr%m_data(lb(1):ub(1), &
+                             lb(2):ub(2), &
+                             lb(3):ub(3), &
+                             lb(4):ub(4)))
+
     end function
 
     pure subroutine move_array2(to, from)

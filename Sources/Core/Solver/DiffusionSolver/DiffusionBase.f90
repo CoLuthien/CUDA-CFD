@@ -2,26 +2,27 @@ module DiffusionBase
     use, intrinsic :: iso_fortran_env
     implicit none
 
+    type, abstract :: TransportProperty
+    contains
+        procedure(calc_transport_property), pass, deferred :: transport
+    end type TransportProperty
     type, abstract :: DiffusionSolver(n_spc)
         integer, len :: n_spc
-        class(TransportProperty), pointer :: m_transport
+        class(TransportProperty), allocatable :: m_transport
     contains
         procedure, pass :: solve_diffusion
         procedure(calc_diffusive_flux), pass, deferred :: diffusive_flux
     end type DiffusionSolver
 
-    type, abstract :: TransportProperty
-    contains
-        procedure(calc_transport_property), pass, deferred :: transport
-    end type TransportProperty
 
     interface
         subroutine calc_diffusive_flux(self)
             import DiffusionSolver
             class(DiffusionSolver(*)), intent(in) :: self
         end subroutine
-        pure subroutine calc_transport_property(self, spcs, spcs_density, temperature, pressure, density & ! intent(in)
-                                                , viscosity, turbulent_viscosity, thermal_conductivity, diffusion_coefficient) ! intent(out)
+         subroutine calc_transport_property(self, spcs, spcs_density, temperature, pressure, density & ! intent(in)
+                                                , viscosity, turbulent_viscosity, thermal_conductivity, diffusion_coefficient&
+                                                , resolution) ! intent(out)
             use :: SpecieBase, only:Specie
             use :: ArrayBase
             import TransportProperty
@@ -29,8 +30,9 @@ module DiffusionBase
             class(Specie), intent(in) :: spcs(:)
             class(Array4), intent(in) :: spcs_density
             class(Array3), intent(in) :: temperature, pressure, density
-            type(Array4), intent(out) :: diffusion_coefficient
-            type(Array3), intent(out) :: viscosity, thermal_conductivity, turbulent_viscosity
+            type(Array4), intent(inout) :: diffusion_coefficient
+            type(Array3), intent(inout) :: viscosity, thermal_conductivity, turbulent_viscosity
+            integer, intent(in) :: resolution(3)
         end subroutine calc_transport_property
     end interface
 
@@ -48,13 +50,13 @@ contains
         type(Array4) :: diffusion_coefficient
         type(Array3) :: viscosity, thermal_conductivity, turbulent_viscosity
 
-        viscosity = Array(prim%t)
-        thermal_conductivity = Array(prim%t)
-        turbulent_viscosity = Array(prim%t)
-        diffusion_coefficient = Array(prim%rhok)
+        viscosity = Array3(prim%t)
+        thermal_conductivity = Array3(prim%t)
+        turbulent_viscosity = Array3(prim%t)
+        diffusion_coefficient = Array4(prim%rhok)
 
         call self%m_transport%transport(spcs, prim%rhok, prim%t, prim%p, prim%rho &
-                                        , viscosity, turbulent_viscosity, thermal_conductivity, diffusion_coefficient)
+                                        , viscosity, turbulent_viscosity, thermal_conductivity, diffusion_coefficient, prim%m_resolution)
         !call self%diffusive_flux
     end subroutine
 
