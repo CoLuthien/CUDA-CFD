@@ -33,17 +33,16 @@ target_compile_options(${target}
 
     PUBLIC
     ${DEFAULT_COMPILE_OPTIONS}
-    "-Mcuda"
     INTERFACE
 )
 
-message(
-    ${CMAKE_Fortran_MODULE_DIRECTORY}
-)
 
 # Link libraries
 target_link_libraries(${target}
-    PRIVATE
+    PUBLIC
     FortFlow
+    PRIVATE
     ${DEFAULT_LINKER_OPTIONS}
     )
+
+message(${CMAKE_Fortran_COMPILER_ID})
