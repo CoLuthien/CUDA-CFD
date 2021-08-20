@@ -3,11 +3,13 @@ module chemtest
     use, intrinsic :: iso_fortran_env
     use :: ChemistryBase
 
+
     type, extends(ChemistrySolver) :: CustomChem
     end type
 end module
 program testSaxpy
     use, intrinsic :: iso_fortran_env
+    use :: omp_lib
     use :: SpecieBase
     use :: ArrayBase
     use :: SolverBase
@@ -25,13 +27,13 @@ program testSaxpy
     type(FCGrid3D(n_spc)) :: grid
     type(ReferenceState) :: state
     integer :: res(3), i
-    integer, parameter :: nx=100, ny=102, nz=8
+    integer, parameter :: nx=32*1, ny=17 * 1, nz=27 * 1
     real(real64) :: start, fin
 
     res= [nx, ny, nz]
 
     ! read from file
-    allocate (x(-2:nx + 3, -2:ny+3, -2:nz+3))
+    allocate (x(0:nx + 2, 0:ny+2, 0:nz+2))
     allocate (y, z, mold=x)
     x(1:9, 1:9, 1:9) = 2
     y = x
@@ -53,10 +55,10 @@ program testSaxpy
 
     call fluid_solver%check_allocation()
     print*, size(fluid_solver%m_chemistry%spcs)
-    do i=1, 10
-        call cpu_time(start)
+    do i=1, 100
+        start = omp_get_wtime()
         call fluid_solver%solve()
-        call cpu_time(fin)
+        fin = omp_get_wtime()
         print*, fin -start
     end  do
 

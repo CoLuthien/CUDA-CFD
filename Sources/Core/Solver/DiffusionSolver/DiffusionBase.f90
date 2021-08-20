@@ -20,19 +20,18 @@ contains
             import DiffusionSolver
             class(DiffusionSolver(*)), intent(in) :: self
         end subroutine
-        subroutine calc_transport_property(self, spcs, spcs_density, temperature, pressure, density & ! intent(in)
+        pure subroutine calc_transport_property(self, spcs, spcs_density, temperature, pressure, density, tv & ! intent(in)
                                            , viscosity, turbulent_viscosity, thermal_conductivity, diffusion_coefficient &
-                                           , resolution) ! intent(out)
+                                           ) ! intent(out)
             use :: SpecieBase, only:Specie
             use :: ArrayBase
             import TransportProperty
             class(TransportProperty), intent(in) :: self
-            class(Specie), intent(in) :: spcs(:)
-            class(Array4), intent(in) :: spcs_density
-            class(Array3), intent(in) :: temperature, pressure, density
-            type(Array4), intent(inout) :: diffusion_coefficient
-            type(Array3), intent(inout) :: viscosity, thermal_conductivity, turbulent_viscosity
-            integer, intent(in) :: resolution(3)
+        class(Specie), intent(in) :: spcs(:)
+        real(real64), intent(in) :: spcs_density(size(spcs))
+        real(real64), intent(in) :: temperature, pressure, density, tv
+        real(real64), intent(out) :: diffusion_coefficient(size(spcs))
+        real(real64), intent(out) :: viscosity, thermal_conductivity, turbulent_viscosity
         end subroutine calc_transport_property
     end interface
 
@@ -47,15 +46,17 @@ contains
         class(PrimitiveData3D), intent(in), allocatable :: prim
         class(ConservedData3D), intent(inout) :: conserv
         class(Specie), intent(in) :: spcs(self%n_spc)
-        type(Array4) :: diffusion_coefficient
-        type(Array3) :: viscosity, thermal_conductivity, turbulent_viscosity
-
-        viscosity = Array3(prim%t)
-        thermal_conductivity = Array3(prim%t)
-        turbulent_viscosity = Array3(prim%t)
-        diffusion_coefficient = Array4(prim%rhok)
-        call self%m_transport%transport(spcs, prim%rhok, prim%t, prim%p, prim%rho &
-                                   , viscosity, turbulent_viscosity, thermal_conductivity, diffusion_coefficient, prim%m_resolution)
+        real(real64) :: diffusion_coefficient(size(spcs))
+        real(real64) :: viscosity, thermal_conductivity, turbulent_viscosity
+        integer :: nx, ny, nz, i, j, k
+        nx = prim%m_resolution(1)
+        ny = prim%m_resolution(2)
+        nz = prim%m_resolution(3)
+        do concurrent(i=1:nx, j=1:ny, k=1:nz)
+            call self%m_transport%transport(spcs, prim%rhok%m_data(i, j, k, 1:), prim%t%m_data(i, j, k),&
+             prim%p%m_data(i, j, k), prim%rho%m_data(i, j, k), prim%tv%m_data(i, j, k) &
+                                   , viscosity, turbulent_viscosity, thermal_conductivity, diffusion_coefficient)
+        end do  
         !call self%diffusive_flux
     end subroutine
 
