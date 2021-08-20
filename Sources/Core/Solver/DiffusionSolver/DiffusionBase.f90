@@ -1,5 +1,6 @@
 module DiffusionBase
     use, intrinsic :: iso_fortran_env
+    use :: Debug
     implicit none
 
     type, abstract :: TransportProperty
@@ -43,7 +44,7 @@ contains
         use :: SpecieBase, only:Specie
         class(DiffusionSolver(*)), intent(in) :: self
         class(CellMetricData3D), intent(in) :: metrics
-        class(PrimitiveData3D), intent(in) :: prim
+        class(PrimitiveData3D), intent(in), allocatable :: prim
         class(ConservedData3D), intent(inout) :: conserv
         class(Specie), intent(in) :: spcs(self%n_spc)
         type(Array4) :: diffusion_coefficient
@@ -53,7 +54,6 @@ contains
         thermal_conductivity = Array3(prim%t)
         turbulent_viscosity = Array3(prim%t)
         diffusion_coefficient = Array4(prim%rhok)
-
         call self%m_transport%transport(spcs, prim%rhok, prim%t, prim%p, prim%rho &
                                    , viscosity, turbulent_viscosity, thermal_conductivity, diffusion_coefficient, prim%m_resolution)
         !call self%diffusive_flux

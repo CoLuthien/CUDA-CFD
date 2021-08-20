@@ -20,11 +20,13 @@ program testSaxpy
     real(real64), allocatable :: k(:), j(:)
     type(Solver(n_spc)) :: fluid_solver
     type(InitialCondition(n_spc)) :: cond
-    type(CustomChem(n_spc)) :: chemsolver
+    type(CustomChem(n_spc)), allocatable :: chemsolver
     type(DiffusionLegacy(n_spc)) :: diff_solver
     type(FCGrid3D(n_spc)) :: grid
-    integer :: res(3)
-    integer, parameter :: nx=100, ny=102, nz=300
+    type(ReferenceState) :: state
+    integer :: res(3), i
+    integer, parameter :: nx=100, ny=102, nz=8
+    real(real64) :: start, fin
 
     res= [nx, ny, nz]
 
@@ -34,16 +36,29 @@ program testSaxpy
     x(1:9, 1:9, 1:9) = 2
     y = x
     z = x
-    print*, size(x)
+    allocate(chemsolver)
+
+
+    allocate (SpecieNasa7::chemsolver%spcs(n_spc))
+    call chemsolver%spcs(:)%set_spc_data(n_spc)
+    do i=1, n_spc
+        call chemsolver%spcs(i)%init_spc_derived_data(chemsolver%spcs(:), state)
+    end do 
+
     fluid_solver%m_grid = FCGrid3D(x, y, z, cond, res, n_spc)
     fluid_solver%m_chemistry = chemsolver
     fluid_solver%m_diffusion = DiffusionLegacy(n_spc)
 
-    allocate (SpecieNasa7::chemsolver%spcs(n_spc))
+
 
     call fluid_solver%check_allocation()
-
-    call fluid_solver%solve()
+    print*, size(fluid_solver%m_chemistry%spcs)
+    do i=1, 10
+        call cpu_time(start)
+        call fluid_solver%solve()
+        call cpu_time(fin)
+        print*, fin -start
+    end  do
 
     print*, fluid_solver%m_grid%n_spc
 

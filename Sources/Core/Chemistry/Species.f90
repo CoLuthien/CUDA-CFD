@@ -1,28 +1,34 @@
 module SpecieBase
     use, intrinsic :: iso_fortran_env
+    use :: Metric
     implicit none
     type, abstract :: Specie
-        real(real64) :: molar_weight
+        real(real64) :: molar_weight, molar_weight_nd
         real(real64) :: molar_hof, mass_hof ! heat of formation
         real(real64) :: molar_diam !molecular diameter
-        real(real64) :: characteristic_temp ! charateristic temperature
-        real(real64), allocatable, private :: f1(:), f2(:) ! by doi:10.2514/6.2013-303, calculating scaling factor for ...
+        real(real64) :: char_temp ! charateristic temperature
+        real(real64), allocatable, private :: f1(:), f2(:) ! by doi:10.2514/6.2013-303, pre-calculated weight for viscosity coefficient calculation
+        real(real64), allocatable :: teab(:) ! unknown
+        real(real64), allocatable :: diff_coef(:) ! precalculated part of diffusion coefficient eqn
     contains
         ! some  eqns are based on mass fraction, rather than mole fraction (ex. Fick's 1st law of diffusion)
         ! converting such eqns into mole fraction base are tooooo cumbersome,
         ! so we will provide a way of getting mass base property
-
-    ! Todo: add entrophy, etc
+        ! Todo: add entrophy, etc
         procedure(entalphy), deferred, pass :: H
-        procedure(kinematic_viscosity), deferred, pass :: Eu
-        procedure(kinematic_conductivity), deferred, pass :: Cd
+        procedure(dynamic_viscosity), deferred, pass :: Eu
+        procedure(conductivity), deferred, pass :: Cd
 
         procedure(entalphy), deferred, pass :: H_mass
-        procedure(kinematic_viscosity), deferred, pass :: Eu_mass
-        procedure(kinematic_conductivity), deferred, pass :: Cd_mass
+        procedure(dynamic_viscosity), deferred, pass :: Eu_mass
+        procedure(conductivity), deferred, pass :: Cd_mass
 
-        procedure, pass, private :: calc_mixture_scale_coef
+        procedure, pass, private :: calc_mixture_viscosity_scale_coef 
+        procedure, pass, private :: calc_mixture_diffusion_coef
         procedure, pass :: get_scale_factor
+
+        procedure :: set_spc_data
+        procedure :: init_spc_derived_data
     end type Specie
 
     type, extends(Specie) :: SpecieNasa7
@@ -53,13 +59,13 @@ module SpecieBase
     end interface
 
     interface
-        pure elemental function kinematic_viscosity(self, temp) result(H)
+        pure elemental function dynamic_viscosity(self, temp) result(H)
             import Specie, real64
             class(Specie), intent(in) :: self
             real(real64), intent(in) :: temp
             real(real64) :: H
         end function
-        pure elemental function kinematic_conductivity(self, temp) result(H)
+        pure elemental function conductivity(self, temp) result(H)
             import Specie, real64
             class(Specie), intent(in) :: self
             real(real64), intent(in) :: temp
@@ -91,20 +97,38 @@ contains
         Eu = 0.d0
     end function
 
+    elemental subroutine set_spc_data(self, n_spc)
+        class(Specie), intent(inout) :: self
+        integer, intent(in):: n_spc
+
+        allocate(self%f1(n_spc), self%f2(n_spc), self%diff_coef(n_spc), self%teab(n_spc))
+    end subroutine
+
+    subroutine init_spc_derived_data(self, spcs, ref_state)
+        class(Specie) :: self, spcs(:)
+        type(ReferenceState), intent(in) :: ref_state
+        call self%calc_mixture_viscosity_scale_coef(spcs)
+        call self%calc_mixture_diffusion_coef(spcs, ref_state)
+        print*, "ok"
+    end subroutine
+
+
+
     ! for convinient develop, spcs is in order, and include my self
     ! see third page or DOI: 10.2514/6.2013-303
     !
-    subroutine calc_mixture_scale_coef(self, spcs)
+    subroutine calc_mixture_viscosity_scale_coef(self, spcs)
         class(Specie), intent(inout) :: self
         class(Specie), intent(in) :: spcs(:)
         real(real64), dimension(size(spcs)) :: factor1, factor2, alpha, beta
         ! 1.0 / sqrt(8 * (1 + mw(mine) / mw(others...))
         alpha(:) = 1.d0 &
-                   /sqrt(8.d0*(1.d0 + self%molar_weight/spcs(:)%molar_weight))
+                   /sqrt(8.d0*(1.d0 + self%molar_weight/spcs(:)%molar_weight)) ! ok non-d
 
         ! mw(others ...) / mw(mine)
-        beta(:) = spcs(:)%molar_weight/self%molar_weight
+        beta(:) = spcs(:)%molar_weight/self%molar_weight ! ok non-d
 
+        ! inherently non-d
         factor1(:) = alpha*(beta**2.d0)
         factor2(:) = (2.d0*beta + 1.d0)*alpha
 
@@ -113,13 +137,44 @@ contains
     end subroutine
 
     ! see third page or DOI: 10.2514/6.2013-303
-    pure function get_scale_factor(self, ratio, molar_concent) result(weight)
+    pure function get_scale_factor(self, ratio, molar_fraction) result(weight)
         class(Specie), intent(in) :: self
-        real(real64), intent(in) :: ratio(:), molar_concent(:)
+        real(real64), intent(in) :: ratio(:), molar_fraction(:)
         real(real64) :: weight
         ! now m_r * rest of term (in eqn 2)
-        weight = sum(molar_concent(1:) &
+        weight = sum(molar_fraction(1:) &
                      *(ratio(1:)*self%f1(1:) + sqrt(ratio)*self%f2(1:)))
     end function
+
+    subroutine calc_mixture_diffusion_coef(self, spcs, ref_state)
+        class(Specie) :: self
+        class(Specie), intent(in) :: spcs(:)
+        type(ReferenceState), intent(in) :: ref_state
+        real(real64), dimension(size(spcs)) :: sigma_ab, teab, dcoef, euk
+        real(real64) :: gt1, t3p, gp1
+        real(real64) :: ref_gamma, ref_temp, ref_pressure, ref_kine_vis
+        ! ref mixture is mole fraction
+        ref_gamma = ref_state%ref_gamma
+        ref_temp = ref_state%ref_temperature
+        ref_pressure = ref_state%ref_pressure
+        ref_kine_vis = ref_state%ref_kinematic_viscosity
+
+        gt1 = ref_gamma*ref_temp
+        gp1 = ref_gamma*ref_pressure
+        t3p = (gt1**3)/(gp1**2)
+
+        sigma_ab(1:) = 0.5d0*(self%molar_diam*spcs(:)%molar_diam)
+        teab(1:) = gt1/sqrt(self%char_temp*spcs(1:)%char_temp) ! non-d
+        dcoef(1:) = 0.0018583d0 &
+                    *sqrt(t3p &
+                          *((1.d0/self%molar_weight) + (1.d0/spcs(1:)%molar_weight)))
+
+        ! now non-d
+        dcoef(1:) = (dcoef(1:)/sigma_ab(1:)) &
+                    /ref_kine_vis 
+
+        self%diff_coef(1:) = dcoef(1:)
+        self%teab = teab
+    end subroutine
 
 end module SpecieBase

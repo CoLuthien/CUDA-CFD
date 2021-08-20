@@ -62,14 +62,12 @@ contains
         class(Array3), intent(in) :: from
         type(Array3) :: to
         !allocate (to)
-        print *, "shape copy"
         to%m_size = from%m_size
         allocate (to%m_data, mold=from%m_data)
     end function make_array3
     function make_array3_size(i, j, k) result(arr)
         integer, intent(in) :: i, j, k
         type(Array3) :: arr
-        print *, "new from size"
         arr%m_size = [i, j, k]
         allocate (arr%m_data(i, j, k))
     end function
@@ -77,7 +75,6 @@ contains
     function make_array3_move(from) result(to)
         real(real64), intent(inout), allocatable :: from(:, :, :)
         type(Array3) :: to
-        print *, " move"
         to%m_size = size(from)
         call move_alloc(from, to%m_data)
     end function

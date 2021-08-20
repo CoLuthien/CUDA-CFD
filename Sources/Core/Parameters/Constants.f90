@@ -8,6 +8,6 @@ module Constants
         integer, len :: n_spc
         real(real64) :: u, v, w, temp, tk, tw, tv
         real(real64) :: spcs_density(n_spc)
-    end type 
+    end type
 
 end module  

@@ -33,6 +33,7 @@ contains
         class(Solver(*)), intent(inout) :: self
 
         ! todo : add things to solve
+        print*, "base in"
         associate(m_grid => self%m_grid, spcs => self%m_chemistry%spcs)
             call self%m_diffusion%solve_diffusion(m_grid%m_primitives, m_grid%m_conservatives, m_grid%m_metrics, spcs) 
         end associate

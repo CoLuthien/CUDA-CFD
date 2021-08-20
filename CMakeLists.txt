@@ -23,7 +23,7 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/lib)
 # Set enable output of compile commands during generation
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_Fortran_FLAGS
-    "-fopenmp -check bound")
+    "-fopenmp -g")
 
 
 
