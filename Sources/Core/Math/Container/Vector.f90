@@ -110,45 +110,45 @@ contains
         type(Vector3), intent(in) :: vec
         real(real64), intent(in) :: scalar
         type(Vector3) :: mul
-        mul%x = vec%x*scalar
-        mul%y = vec%y*scalar
-        mul%z = vec%z*scalar
+        mul%x = vec%x * scalar
+        mul%y = vec%y * scalar
+        mul%z = vec%z * scalar
     end function scalar_vec_mult
 
     pure elemental function vec_scalar_mult(vec, scalar) result(mul)
         type(Vector3), intent(in) :: vec
         real(real64), intent(in) :: scalar
         type(Vector3) :: mul
-        mul%x = vec%x*scalar
-        mul%y = vec%y*scalar
-        mul%z = vec%z*scalar
+        mul%x = vec%x * scalar
+        mul%y = vec%y * scalar
+        mul%z = vec%z * scalar
     end function vec_scalar_mult
 
     pure elemental function iscalar_vec_mult(vec, scalar) result(mul)
         type(Vector3), intent(in) :: vec
         integer, intent(in) :: scalar
         type(Vector3) :: mul
-        mul%x = vec%x*real(scalar, real64)
-        mul%y = vec%y*real(scalar, real64)
-        mul%z = vec%z*real(scalar, real64)
+        mul%x = vec%x * real(scalar, real64)
+        mul%y = vec%y * real(scalar, real64)
+        mul%z = vec%z * real(scalar, real64)
     end function iscalar_vec_mult
 
     pure elemental function scalar_vec_div(vec, scalar) result(div)
         type(Vector3), intent(in) :: vec
         real(real64), intent(in) :: scalar
         type(Vector3) :: div
-        div%x = vec%x/scalar
-        div%y = vec%y/scalar
-        div%z = vec%z/scalar
+        div%x = vec%x / scalar
+        div%y = vec%y / scalar
+        div%z = vec%z / scalar
     end function scalar_vec_div
 
     pure elemental function iscalar_vec_div(vec, scalar) result(div)
         type(Vector3), intent(in) :: vec
         integer, intent(in) :: scalar
         type(Vector3) :: div
-        div%x = vec%x/real(scalar, real64)
-        div%y = vec%y/real(scalar, real64)
-        div%z = vec%z/real(scalar, real64)
+        div%x = vec%x / real(scalar, real64)
+        div%y = vec%y / real(scalar, real64)
+        div%z = vec%z / real(scalar, real64)
     end function iscalar_vec_div
 
     pure elemental function vec_vec_add(vec1, vec2) result(add)
@@ -206,17 +206,17 @@ contains
     pure elemental function dotproduct(vec1, vec2) result(dot)
         type(Vector3), intent(in) :: vec1, vec2
         real(real64) :: dot
-        dot = vec1%x*vec2%x + &
-              vec1%y*vec2%y + &
-              vec1%z*vec2%z
+        dot = vec1%x * vec2%x + &
+              vec1%y * vec2%y + &
+              vec1%z * vec2%z
     end function dotproduct
 
     !DIR$ ATTRIBUTES INLINE :: crossproduct
     pure elemental function crossproduct(vec1, vec2) result(cross)
         type(Vector3), intent(in) :: vec1, vec2
         type(Vector3) :: cross
-        cross%x = (vec1%y*vec2%z) - (vec1%z*vec2%y)
-        cross%y = (vec1%z*vec2%x) - (vec1%x*vec2%z)
-        cross%z = (vec1%x*vec2%y) - (vec1%y*vec2%x)
+        cross%x = (vec1%y * vec2%z) - (vec1%z * vec2%y)
+        cross%y = (vec1%z * vec2%x) - (vec1%x * vec2%z)
+        cross%z = (vec1%x * vec2%y) - (vec1%y * vec2%x)
     end function crossproduct
 end module Vector

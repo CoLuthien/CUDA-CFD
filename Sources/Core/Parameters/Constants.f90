@@ -6,10 +6,9 @@ module Constants
 
     real(real64) :: prt, rprt, sct, rsct
 
-    type :: InitialCondition(n_spc)
-        integer, len :: n_spc
+    type :: InitialCondition
         real(real64) :: u, v, w, temp, tk, tw, tv
-        real(real64) :: spcs_density(n_spc)
+        real(real64), allocatable :: spcs_density(:)
     end type
 
-end module  
+end module

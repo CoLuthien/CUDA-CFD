@@ -25,7 +25,7 @@ module SpecieBase
         procedure(conductivity), deferred, pass :: Cd_mass
         procedure(specific_heat), deferred, pass :: Cp_mass
 
-        procedure, pass, private :: calc_mixture_viscosity_scale_coef 
+        procedure, pass, private :: calc_mixture_viscosity_scale_coef
         procedure, pass, private :: calc_mixture_diffusion_coef
         procedure, pass :: get_scale_factor
 
@@ -67,7 +67,7 @@ module SpecieBase
             class(Specie), intent(in) :: self
             real(real64), intent(in) :: temp
             integer, intent(in) :: idx
-            real(real64) :: C 
+            real(real64) :: C
         end function
         pure elemental function dynamic_viscosity(self, temp) result(H)
             import Specie, real64
@@ -87,11 +87,11 @@ contains
 
     pure function check_temp_range(temp) result(idx)
         real(real64), intent(in) :: temp
-        integer :: idx 
+        integer :: idx
         idx = 1
-        if (temp >= 1000.d0) then 
+        if (temp >= 1000.d0) then
             idx = 2
-        end if 
+        end if
     end function
 
     pure elemental function entalphy7(self, temp, idx) result(H)
@@ -103,7 +103,7 @@ contains
     end function entalphy7
 
     pure elemental function viscosity5(self, temp) result(Eu)
-    !$omp declare simd(viscosity5) uniform(self, temp)
+        !$omp declare simd(viscosity5) uniform(self, temp)
         class(SpecieNasa7), intent(in) :: self
         real(real64), intent(in) :: temp
         real(real64) :: Eu
@@ -111,7 +111,7 @@ contains
     end function viscosity5
 
     pure elemental function conductivity5(self, temp) result(Eu)
-    !$omp declare simd(conductivity5) uniform(self, temp)
+        !$omp declare simd(conductivity5) uniform(self, temp)
         class(SpecieNasa7), intent(in) :: self
         real(real64), intent(in) :: temp
         real(real64) :: Eu
@@ -120,27 +120,26 @@ contains
 
     pure elemental function cp_mass5(self, temp, idx) result(C)
         class(SpecieNasa7), intent(in) :: self
-        real(real64), intent(in) :: temp 
-        integer, intent(in) :: idx 
+        real(real64), intent(in) :: temp
+        integer, intent(in) :: idx
         real(real64) :: C
         C = 0.d0
     end function
 
-    elemental subroutine set_spc_data(self, n_spc)
+    subroutine set_spc_data(self, n_spc)
         class(Specie), intent(inout) :: self
         integer, intent(in):: n_spc
 
-        allocate(self%f1(n_spc), self%f2(n_spc), self%diff_coef(n_spc), self%teab(n_spc))
+        allocate (self%f1(n_spc), self%f2(n_spc), self%diff_coef(n_spc), self%teab(n_spc))
     end subroutine
 
     subroutine init_spc_derived_data(self, spcs, ref_state)
-        class(Specie) :: self, spcs(:)
+        class(Specie) :: self
+        class(Specie), intent(in)::  spcs(:)
         type(ReferenceState), intent(in) :: ref_state
         call self%calc_mixture_viscosity_scale_coef(spcs)
         call self%calc_mixture_diffusion_coef(spcs, ref_state)
     end subroutine
-
-
 
     ! for convinient develop, spcs is in order, and include my self
     ! see third page or DOI: 10.2514/6.2013-303
@@ -150,15 +149,15 @@ contains
         class(Specie), intent(in) :: spcs(:)
         real(real64), dimension(size(spcs)) :: factor1, factor2, alpha, beta
         ! 1.0 / sqrt(8 * (1 + mw(mine) / mw(others...))
-        alpha(:) = 1.d0 &
-                   /sqrt(8.d0*(1.d0 + self%molar_weight/spcs(:)%molar_weight)) ! ok non-d
+        alpha(1:) = 1.d0 &
+                    / sqrt(8.d0 * (1.d0 + self%molar_weight / spcs(:)%molar_weight)) ! ok non-d
 
         ! mw(others ...) / mw(mine)
-        beta(:) = spcs(:)%molar_weight/self%molar_weight ! ok non-d
+        beta(1:) = spcs(:)%molar_weight / self%molar_weight ! ok non-d
 
         ! inherently non-d
-        factor1(:) = alpha*(beta**2.d0)
-        factor2(:) = (2.d0*beta + 1.d0)*alpha
+        factor1(1:) = alpha * (beta**2.d0)
+        factor2(1:) = (2.d0 * beta + 1.d0) * alpha
 
         self%f1 = factor1
         self%f2 = factor2
@@ -172,7 +171,7 @@ contains
         real(real64) :: weight
         ! now m_r * rest of term (in eqn 2)
         weight = sum(mole_fraction(1:) &
-                     *(ratio(1:)*self%f1(1:) + sqrt(ratio(1:))*self%f2(1:)))
+                     * (ratio(1:) * self%f1(1:) + sqrt(ratio(1:)) * self%f2(1:)))
     end function
 
     subroutine calc_mixture_diffusion_coef(self, spcs, ref_state)
@@ -188,19 +187,19 @@ contains
         ref_pressure = ref_state%ref_pressure
         ref_kine_vis = ref_state%ref_kinematic_viscosity
 
-        gt1 = ref_gamma*ref_temp
-        gp1 = ref_gamma*ref_pressure
-        t3p = (gt1**3)/(gp1**2)
+        gt1 = ref_gamma * ref_temp
+        gp1 = ref_gamma * ref_pressure
+        t3p = (gt1**3) / (gp1**2)
 
-        sigma_ab(1:) = 0.5d0*(self%molar_diam*spcs(:)%molar_diam)
-        teab(1:) = gt1/sqrt(self%char_temp*spcs(1:)%char_temp) ! non-d
+        sigma_ab(1:) = 0.5d0 * (self%molar_diam * spcs(:)%molar_diam)
+        teab(1:) = gt1 / sqrt(self%char_temp * spcs(1:)%char_temp) ! non-d
         dcoef(1:) = 0.0018583d0 &
-                    *sqrt(t3p &
-                          *((1.d0/self%molar_weight) + (1.d0/spcs(1:)%molar_weight)))
+                    * sqrt(t3p &
+                           * ((1.d0 / self%molar_weight) + (1.d0 / spcs(1:)%molar_weight)))
 
         ! now non-d
-        dcoef(1:) = (dcoef(1:)/sigma_ab(1:)) &
-                    /ref_kine_vis 
+        dcoef(1:) = (dcoef(1:) / sigma_ab(1:)) &
+                    / ref_kine_vis
 
         self%diff_coef(1:) = dcoef(1:)
         self%teab = teab

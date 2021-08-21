@@ -24,26 +24,26 @@ contains
     ! todo: refine init diffusion
     function init_diffusion_legacy(n_spc) result(solver)
         integer :: n_spc
-        type(DiffusionLegacy(n_spc)) :: solver
+        type(DiffusionLegacy) :: solver
         type(TransportLegacy) :: prop
 
         solver%m_transport = prop
     end function
 
     subroutine diffusion(self)
-        class(DiffusionLegacy(*)), intent(in) :: self
+        class(DiffusionLegacy), intent(in) :: self
         call self%diffusive_flux()
     end subroutine
 
     subroutine legacy_diffusive_flux(self)
-        class(DiffusionLegacy(*)), intent(in) :: self
+        class(DiffusionLegacy), intent(in) :: self
     end subroutine legacy_diffusive_flux
 
     ! every data in or out for  this routine, is non-dimensional quantity
     pure subroutine transport(self, spcs, spcs_density, temperature, pressure, density, tv & ! intent(in)
                               , viscosity, turbulent_viscosity, thermal_conductivity, diffusion_coefficient & ! intent(out)
                               )
-        use :: Constants, only: rprt, rsct
+        use :: Constants, only:rprt, rsct
         class(TransportLegacy), intent(in) :: self
         class(Specie), intent(in) :: spcs(:)
         real(real64), intent(in) :: spcs_density(size(spcs))
@@ -101,7 +101,7 @@ contains
 
         idx = check_temp_range(temp)
         cp_k(1:n_spc) = spcs(1:n_spc)%Cp_mass(temp, idx)
-        cpt = sum ( cp_k(1:n_spc) * spcs_density(1:n_spc) / density )
+        cpt = sum(cp_k(1:n_spc) * spcs_density(1:n_spc) / density)
 
         turbulent_viscosity = eu + tv
         cdt = tv * cpt * rprt

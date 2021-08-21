@@ -34,15 +34,14 @@ module ArrayBase
         procedure :: get_data3
     end interface
 
-
-    interface Array3
+    interface Array3D
         module procedure :: make_array3 ! copy size and allocate same shape
         module procedure :: make_array3_size
         module procedure :: make_array3_move
         module procedure :: make_array3_bound
     end interface
 
-    interface Array4
+    interface Array4D
         module procedure :: make_array4
         module procedure :: make_array4_size
         module procedure :: make_array4_bound
@@ -65,9 +64,11 @@ contains
         to%m_size = from%m_size
         allocate (to%m_data, mold=from%m_data)
     end function make_array3
+
     function make_array3_size(i, j, k) result(arr)
         integer, intent(in) :: i, j, k
         type(Array3) :: arr
+
         arr%m_size = [i, j, k]
         allocate (arr%m_data(i, j, k))
     end function
@@ -76,6 +77,7 @@ contains
         real(real64), intent(inout), allocatable :: from(:, :, :)
         type(Array3) :: to
         to%m_size = size(from)
+
         call move_alloc(from, to%m_data)
     end function
 
@@ -93,18 +95,16 @@ contains
                              lb(3):ub(3)))
     end function
 
-    pure function make_array4(from) result(to)
+    function make_array4(from) result(to)
         class(Array4), intent(in) :: from
-        class(Array4), allocatable :: to
-        allocate (to)
+        type(Array4) :: to
         to%m_size = from%m_size
         allocate (to%m_data, mold=from%m_data)
     end function make_array4
 
-    pure function make_array4_size(i, j, k, l) result(arr)
+    function make_array4_size(i, j, k, l) result(arr)
         integer, intent(in) :: i, j, k, l
-        class(Array4), allocatable :: arr
-        allocate (arr)
+        type(Array4) :: arr
         arr%m_size = [i, j, k, l]
         allocate (arr%m_data(i, j, k, l))
     end function

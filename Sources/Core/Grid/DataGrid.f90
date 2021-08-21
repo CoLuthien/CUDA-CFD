@@ -32,15 +32,15 @@ module DataGrid
     contains
     end type
 
-    interface CellMetricData3D
+    interface CellMetricData3
         procedure :: init_cell_metrics
     end interface
 
-    interface PrimitiveData3D
-        module procedure :: init_prim3d_data
+    interface PrimitiveData3
+        procedure :: init_prim3d_data
     end interface
-    interface ConservedData3D
-        module procedure :: init_consrv3d_data
+    interface ConservedData3
+        procedure :: init_consrv3d_data
     end interface
 
 contains
@@ -53,7 +53,7 @@ contains
         real(real64) :: v1, v2, v3, v4, v5, vol
         integer :: i, j, k
 
-        self%sx = Array3(resolution(1), resolution(2), resolution(3))
+        self%sx = Array3D(resolution(1), resolution(2), resolution(3))
         allocate (self%sy, self%sz, source=self%sx)
 
         allocate ( &
@@ -86,32 +86,32 @@ contains
 
             !---- 3-D Volume (Finite Volume Approach)
 
-            v1 = (((f - b) .cross. (a - b))) .dot. (d - b)/6.d0
-            v2 = (((a - e) .cross. (f - e))) .dot. (g - e)/6.d0
-            v3 = (((g - c) .cross. (d - c))) .dot. (a - c)/6.d0
-            v4 = (((d - h) .cross. (g - h))) .dot. (f - h)/6.d0
-            v5 = (((a - d) .cross. (g - d))) .dot. (f - d)/6.d0
+            v1 = (((f - b) .cross. (a - b))) .dot. (d - b) / 6.d0
+            v2 = (((a - e) .cross. (f - e))) .dot. (g - e) / 6.d0
+            v3 = (((g - c) .cross. (d - c))) .dot. (a - c) / 6.d0
+            v4 = (((d - h) .cross. (g - h))) .dot. (f - h) / 6.d0
+            v5 = (((a - d) .cross. (g - d))) .dot. (f - d) / 6.d0
             vol = (v1 + v2 + v3 + v4 + v5)
             !aj(i, j, k) = 1.d0 / vol
 
             !---- 3-D Metric (Finite Difference Approach)
-            xi = 0.25d0*((b - a) + (d - c) + (f - e) + (h - g)) ! s => same as (s2 - s1) / 1.d0
-            eta = 0.25d0*((e - a) + (g - c) + (f - b) + (h - d)) ! e => same as (s2 - s1) / 1.d0
-            zeta = 0.25d0*((c - a) + (d - b) + (h - f) + (g - e)) ! c => same as (s2 - s1) / 1.d0
+            xi = 0.25d0 * ((b - a) + (d - c) + (f - e) + (h - g)) ! s => same as (s2 - s1) / 1.d0
+            eta = 0.25d0 * ((e - a) + (g - c) + (f - b) + (h - d)) ! e => same as (s2 - s1) / 1.d0
+            zeta = 0.25d0 * ((c - a) + (d - b) + (h - f) + (g - e)) ! c => same as (s2 - s1) / 1.d0
 
             !---- 3-D Jacobian
 
-            u = (1.d0/vol)*(eta.cross.zeta)
-            v = (1.d0/vol)*(zeta.cross.xi)
-            w = (1.d0/vol)*(xi.cross.eta)
+            u = (1.d0 / vol) * (eta.cross.zeta)
+            v = (1.d0 / vol) * (zeta.cross.xi)
+            w = (1.d0 / vol) * (xi.cross.eta)
 
             self%sx%m_data(i, j, k) = u%x; self%ex%m_data(i, j, k) = v%x; self%cx%m_data(i, j, k) = w%x; 
             self%sy%m_data(i, j, k) = u%y; self%ey%m_data(i, j, k) = v%y; self%cy%m_data(i, j, k) = w%y; 
             self%sz%m_data(i, j, k) = u%z; self%ez%m_data(i, j, k) = v%z; self%cz%m_data(i, j, k) = w%z; 
         !!---- 3-D Mesh Cell Interface
-            px = .5d0*((h - b) .cross. (d - f))
-            py = .5d0*((h - e) .cross. (f - g))
-            pz = .5d0*((h - c) .cross. (g - d))
+            px = .5d0 * ((h - b) .cross. (d - f))
+            py = .5d0 * ((h - e) .cross. (f - g))
+            pz = .5d0 * ((h - c) .cross. (g - d))
 
             self%sxc%m_data(i, j, k) = px%x; self%exc%m_data(i, j, k) = py%x; self%cxc%m_data(i, j, k) = pz%x; 
             self%syc%m_data(i, j, k) = px%y; self%eyc%m_data(i, j, k) = py%y; self%cyc%m_data(i, j, k) = pz%y; 
@@ -173,21 +173,21 @@ contains
     end subroutine calc_center_point
 
     function init_prim3d_data(cond, geometry_reference, resolution) result(self)
-        type(InitialCondition(*)), intent(in) :: cond
+        type(InitialCondition), intent(in) :: cond
         class(Array3), intent(in) :: geometry_reference
         type(PrimitiveData3D) :: self
         integer, intent(in) :: resolution(3)
-        integer :: lb(3), n_spc, ub(3) 
+        integer :: lb(3), n_spc, ub(3)
 
         self%m_resolution = resolution
 
         lb = lbound(geometry_reference%m_data)
         ub = ubound(geometry_reference%m_data)
-        n_spc = cond%n_spc
+        n_spc = size(cond%spcs_density)
 
-        self%rhok = Array4([lb(:), 1], [ub(:), n_spc])
+        self%rhok = Array4D([lb(:), 1], [ub(:), n_spc])
 
-        self%u = Array3(lb, ub)
+        self%u = Array3D(lb, ub)
 
         allocate ( &
             self%v, self%w, self%a, &
@@ -197,19 +197,19 @@ contains
 
     end function
 
-    function init_consrv3d_data( cond, geometry_reference, resolution) result(self)
-        type(InitialCondition(*)), intent(in) :: cond
+    function init_consrv3d_data(cond, geometry_reference, resolution) result(self)
+        type(InitialCondition), intent(in) :: cond
         class(Array3), intent(in) :: geometry_reference
         type(ConservedData3D) :: self
         integer, intent(in) :: resolution(3)
         integer :: lb(3), n_spc, ub(3)
         lb = lbound(geometry_reference%m_data)
         ub = ubound(geometry_reference%m_data)
-        n_spc = cond%n_spc
+        n_spc = size(cond%spcs_density)
         self%m_resolution = resolution
-        self%rhok = Array4([lb(:), 1], [ub(:), n_spc])
+        self%rhok = Array4D([lb(:), 1], [ub(:), n_spc])
 
-        self%u_momentum = Array3(lb, ub)
+        self%u_momentum = Array3D(lb, ub)
 
         allocate ( &
             self%v_momentum, self%w_momentum, &
