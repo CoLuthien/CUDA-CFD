@@ -233,7 +233,7 @@ contains
         print *, "Allocating flow field memories..."
 
         self%m_primitives = PrimitiveData3D(cond, self%x, resolution, n_spc)
-        self%m_conservatives = ConservedData3D(cond, self%x, resolution)
+        self%m_conservatives = ConservedData3D(cond, self%x, resolution, n_spc)
 
         print *, "Flow field allocation done..."
 

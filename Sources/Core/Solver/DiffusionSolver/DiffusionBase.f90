@@ -80,6 +80,8 @@ contains
 
         ! result of this subroutine does not multiplied by volume of each cell
         call self%diffusive_mass(metrics, diffusion_coefficient, prim%rhok, prim%rho, n_spc, i, j, k, diffused_mass)
+
+        conserv%rhok%m_data(i, j, k, 1:n_spc) = diffused_mass(:, 1)
     end subroutine
 
 end module DiffusionBase

@@ -199,15 +199,14 @@ contains
 
     end function
 
-    function init_consrv3d_data(cond, geometry_reference, resolution) result(self)
+    function init_consrv3d_data(cond, geometry_reference, resolution, n_spc) result(self)
         type(InitialCondition), intent(in) :: cond
         class(Array3), intent(in) :: geometry_reference
         type(ConservedData3D) :: self
-        integer, intent(in) :: resolution(3)
-        integer :: lb(3), n_spc, ub(3)
+        integer, intent(in) :: resolution(3), n_spc
+        integer :: lb(3), ub(3)
         lb = lbound(geometry_reference%m_data)
         ub = ubound(geometry_reference%m_data)
-        n_spc = size(cond%spcs_density)
         self%m_resolution = resolution
         self%rhok = Array4D([lb(:), 1], [ub(:), n_spc])
 
