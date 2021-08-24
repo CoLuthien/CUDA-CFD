@@ -26,7 +26,7 @@ program testSaxpy
     class(DiffusionLegacy), ALLOCATABLE :: diff_solver
     type(ReferenceState) :: state
     integer :: res(3), i
-    integer, parameter :: nx=32*1, ny=17 * 1, nz=27 * 1
+    integer, parameter :: nx=32*2, ny=17 * 2, nz=27 * 2
     real(real64) :: start, fin
 
     fluid_solver%n_spc = n_spc
@@ -60,7 +60,7 @@ program testSaxpy
 
     call fluid_solver%check_allocation()
     print*, size(fluid_solver%m_chemistry%spcs), lbound(fluid_solver%m_grid%m_primitives%rho%m_data)
-    do i=1, 10
+    do i=1, 100
         start = omp_get_wtime()
         call fluid_solver%solve()
         fin = omp_get_wtime()

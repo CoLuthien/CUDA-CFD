@@ -46,7 +46,7 @@ module DiffusionBase
             class(Array4), intent(in) :: spcs_density
             class(Array3), intent(in):: density
             integer, intent(in) :: n_spc, i, j, k
-            real(real64), intent(out) :: diffused_mass(n_spc)
+            real(real64), intent(out) :: diffused_mass(n_spc, 3)
         end subroutine
 
     end interface
@@ -61,10 +61,10 @@ contains
         class(PrimitiveData3D), intent(in), allocatable :: prim
         class(ConservedData3D), intent(inout) :: conserv
         class(Specie), intent(in) :: spcs(:)
-        real(real64), dimension(size(spcs)) :: diffusion_coefficient, enthalpy, diffused_mass
+        real(real64), dimension(size(spcs)) :: diffusion_coefficient, enthalpy
         real(real64), dimension(size(spcs)) :: spcs_density
         real(real64) :: viscosity, thermal_conductivity, turbulent_viscosity
-        real(real64) :: total_density 
+        real(real64) :: diffused_mass(size(spcs), 3)
         integer, intent(in) ::  i, j, k
         integer :: idx, n_spc
 
@@ -78,6 +78,7 @@ contains
                                         , prim%p%m_data(i, j, k), prim%rho%m_data(i, j, k), prim%tv%m_data(i, j, k) &
                                         , viscosity, turbulent_viscosity, thermal_conductivity, diffusion_coefficient)
 
+        ! result of this subroutine does not multiplied by volume of each cell
         call self%diffusive_mass(metrics, diffusion_coefficient, prim%rhok, prim%rho, n_spc, i, j, k, diffused_mass)
     end subroutine
 

@@ -9,7 +9,7 @@ module DiffusionImpl
     contains
         !procedure :: solve_diffusion => diffusion
 
-        procedure, non_overridable :: diffusive_mass
+        procedure, non_overridable :: diffusive_mass => diffusive_mass_impl
     end type DiffusionLegacy
 
     type, extends(TransportProperty) :: TransportLegacy
@@ -31,7 +31,7 @@ contains
         solver%m_transport = prop
     end function
 
-    pure subroutine diffusive_mass(self, metrics, diffusion_coef, spcs_density, density, n_spc, i, j, k, diffused_mass) 
+    pure subroutine diffusive_mass_impl(self, metrics, diffusion_coef, spcs_density, density, n_spc, i, j, k, diffused_mass) 
         use :: Vector
         use :: ArrayBase
         class(DiffusionLegacy), intent(in) :: self
@@ -41,17 +41,22 @@ contains
         real(real64), intent(in) :: diffusion_coef(n_spc)
         integer, intent(in) :: n_spc, i, j, k
         type(Vector3) :: sec_x, sec_y, sec_z
+        type(Vector3) :: s, e, c
         real(real64), dimension(n_spc) :: rear, front, left, right, top, bottom ! mass fraction of each cell
         real(real64), dimension(n_spc) :: dyk_ds, dyk_de, dyk_dc ! differenciated value for each computation grid direction
         real(real64), dimension(n_spc) :: diff_density
         real(real64), dimension(n_spc) :: flux_s, flux_e, flux_c
-        real(real64), intent(out) :: diffused_mass(n_spc) ! final result of calculated mass diffusion
-        type(Vector3) :: sec_yk(n_spc)
+        real(real64), intent(out) :: diffused_mass(n_spc, 3) ! final result of calculated mass diffusion
+        type(Vector3) :: sec_yk(n_spc), flux(n_spc)
         integer :: idx
 
         sec_x = [metrics%sx%m_data(i, j, k), metrics%ex%m_data(i, j, k), metrics%cx%m_data(i, j, k)]
         sec_y = [metrics%sy%m_data(i, j, k), metrics%ey%m_data(i, j, k), metrics%cy%m_data(i, j, k)]
         sec_z = [metrics%sz%m_data(i, j, k), metrics%ez%m_data(i, j, k), metrics%cz%m_data(i, j, k)]
+
+        s = [metrics%sx%m_data(i, j, k), metrics%sy%m_data(i, j, k), metrics%sz%m_data(i, j, k)]
+        e = [metrics%ex%m_data(i, j, k), metrics%ey%m_data(i, j, k), metrics%ez%m_data(i, j, k)]
+        c = [metrics%cx%m_data(i, j, k), metrics%cy%m_data(i, j, k), metrics%cz%m_data(i, j, k)]
         !&<
         bottom(1:n_spc) = spcs_density%m_data(i, j, k - 1, 1:n_spc) / density%m_data(i, j, k - 1) 
            top(1:n_spc) = spcs_density%m_data(i, j, k + 1, 1:n_spc) / density%m_data(i, j, k + 1)
@@ -77,16 +82,12 @@ contains
         flux_e(1:n_spc) = diff_density(1:n_spc) * (sec_y .dot. sec_yk(1:n_spc))! rvk
         flux_c(1:n_spc) = diff_density(1:n_spc) * (sec_z .dot. sec_yk(1:n_spc))! rwk
 
-        !rbuk = sx*ruk + sy*rvk + sz*rwk
-        !rbvk = ex*ruk + ey*rvk + ez*rwk
-        !rbwk = cx*ruk + cy*rvk + cz*rwk
-        !fv(m) = -rbuk*rj
-        !gv(m) = -rbvk*rj
-        !hv(m) = -rbwk*rj
+        flux = [flux_s, flux_e, flux_c]
 
-        !qxsum = ruk*hk(m) + qxsum
-        !qysum = rvk*hk(m) + qysum
-        !qzsum = rwk*hk(m) + qzsum
+        diffused_mass(1:n_spc, 1) =  s .dot. flux(1:n_spc) !s%x * flux_s(1:n_spc) + s%y * flux_e(1:n_spc) + s%z * flux_c(1:n_spc)
+        diffused_mass(1:n_spc, 2) =  e .dot. flux(1:n_spc) !e%x * flux_s(1:n_spc) + e%y * flux_e(1:n_spc) + e%z * flux_c(1:n_spc)
+        diffused_mass(1:n_spc, 3) =  c .dot. flux(1:n_spc) !c%x * flux_s(1:n_spc) + c%y * flux_e(1:n_spc) + c%z * flux_c(1:n_spc)
+
     end subroutine
 
     subroutine legacy_diffusive_flux(self)
@@ -104,7 +105,7 @@ contains
         real(real64), intent(in) :: temperature, pressure, density, tv
         real(real64), intent(out) :: diffusion_coefficient(:)
         real(real64), intent(out) :: viscosity, thermal_conductivity, turbulent_viscosity
-        real(real64) :: temp, eu, cd, weight, p, t3p, xsm, total, sum_cmk, cpt, cdt, difft
+        real(real64) :: eu, cd, weight, t3p, xsm, total, sum_cmk, cpt, cdt, difft
         real(real64) :: td(size(spcs)), omg(size(spcs)), df(size(spcs), size(spcs))
         real(real64), dimension(size(spcs)) ::  eu_k, cd_k, c, ratio, cp_k
         integer :: i, j, k, l, m, n_spc, nx, ny, nz, cnt, idx
@@ -113,12 +114,11 @@ contains
         ! this loop quite difficult to understand,
         ! to do: change loop range into realistic one
         ! calculatie mole fraction, non-dimensional
-        temp = temperature
         c(1:n_spc) = spcs_density(1:n_spc)*spcs(1:n_spc)%molar_weight_nd
         c(1:n_spc) = c(1:n_spc)/sum(c(1:n_spc))
 
-        eu_k(1:n_spc) = spcs(1:n_spc)%Eu(temp)! calculate single component, laminar viscosity coeff
-        cd_k(1:n_spc) = spcs(1:n_spc)%Cd(temp) ! calculate single component, laminar thermal conductivity coeff
+        eu_k(1:n_spc) = spcs(1:n_spc)%Eu(temperature)! calculate single component, laminar viscosity coeff
+        cd_k(1:n_spc) = spcs(1:n_spc)%Cd(temperature) ! calculate single component, laminar thermal conductivity coeff
 
         do m = 1, n_spc
             ratio(1:n_spc) = eu_k(m)/eu_k(1:n_spc) ! get viscosity coeff ratio for this spc
@@ -131,11 +131,10 @@ contains
         viscosity = eu
         thermal_conductivity = cd
 
-        p = pressure
         c(1:n_spc) = spcs_density(1:n_spc)*spcs(1:n_spc)%molar_weight
-        t3p = sqrt((temp**3)/(p**2))
+        t3p = sqrt((temperature**3)/(pressure**2))
         do m = 1, n_spc
-            td(1:n_spc) = temp*spcs(m)%teab(1:)
+            td(1:n_spc) = temperature*spcs(m)%teab(1:)
             omg(1:n_spc) = 1.d0/(td(1:n_spc)**0.145d0) &
                            + 1.d0/((td(1:n_spc) + 0.5d0)**2)
             df(m, 1:n_spc) = (spcs(m)%diff_coef(1:n_spc)*t3p)/omg(1:n_spc)
@@ -152,8 +151,8 @@ contains
 
         cpt = 0.d0
 
-        idx = check_temp_range(temp)
-        cp_k(1:n_spc) = spcs(1:n_spc)%Cp_mass(temp, idx)
+        idx = check_temp_range(temperature)
+        cp_k(1:n_spc) = spcs(1:n_spc)%Cp_mass(temperature, idx)
         cpt = sum(cp_k(1:n_spc)*spcs_density(1:n_spc)/density)
 
         turbulent_viscosity = eu + tv
