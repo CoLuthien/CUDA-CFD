@@ -32,14 +32,14 @@ module DataGrid
     contains
     end type
 
-    interface CellMetricData3
+    interface CellMetricData3D
         procedure :: init_cell_metrics
     end interface
 
-    interface PrimitiveData3
+    interface PrimitiveData3D
         procedure :: init_prim3d_data
     end interface
-    interface ConservedData3
+    interface ConservedData3D
         procedure :: init_consrv3d_data
     end interface
 
@@ -53,6 +53,7 @@ contains
         real(real64) :: v1, v2, v3, v4, v5, vol
         integer :: i, j, k
 
+        self%m_resolution = resolution
         self%sx = Array3D(resolution(1), resolution(2), resolution(3))
         allocate (self%sy, self%sz, source=self%sx)
 
@@ -172,20 +173,21 @@ contains
         !&>
     end subroutine calc_center_point
 
-    function init_prim3d_data(cond, geometry_reference, resolution) result(self)
+    function init_prim3d_data(cond, geometry_reference, resolution, n_spc) result(self)
         type(InitialCondition), intent(in) :: cond
         class(Array3), intent(in) :: geometry_reference
         type(PrimitiveData3D) :: self
-        integer, intent(in) :: resolution(3)
-        integer :: lb(3), n_spc, ub(3)
+        integer, intent(in) :: resolution(3), n_spc
+        integer :: lb(3), ub(3)
 
         self%m_resolution = resolution
 
+
         lb = lbound(geometry_reference%m_data)
         ub = ubound(geometry_reference%m_data)
-        n_spc = size(cond%spcs_density)
 
         self%rhok = Array4D([lb(:), 1], [ub(:), n_spc])
+        print*, "bound:", lbound(self%rhok%m_data), ubound(self%rhok%m_data)
 
         self%u = Array3D(lb, ub)
 

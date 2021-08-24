@@ -7,7 +7,7 @@ module GridBase
 
     type, abstract :: Grid3D
         integer :: n_spc
-        integer :: m_resolution(3)
+        integer :: m_resolution(3), lb(3), ub(3)
         real(real64) :: m_origin(3)
         type(Array3), allocatable :: x, y, z
         class(CellMetricData3D), allocatable :: m_metrics

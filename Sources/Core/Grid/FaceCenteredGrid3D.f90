@@ -9,9 +9,9 @@ module FCGrid
     contains
     end type FCGrid3D
 
-    interface FCGrid3
+    interface FCGrid3D
         procedure :: init_fcgrid3d
-    end interface FCGrid3
+    end interface FCGrid3D
 
 contains
     subroutine calculate_ghost_points(self)
@@ -202,17 +202,23 @@ contains
         integer, intent(in) :: resolution(3)
         integer, intent(in) :: n_spc
         type(FCGrid3D) :: self
-        integer :: lb(3), ub(3)
+        integer :: lb(3), ub(3), data_size(3)
 
-        self%n_spc = n_spc
 
         print *, "initializing FCGrid3D..."
 
-        self%m_resolution = resolution
 
         self%x = Array3D(x)
         self%y = Array3D(y)
         self%z = Array3D(z)
+
+        self%n_spc = n_spc
+        self%m_resolution = resolution
+        self%lb = lbound(self%x%m_data)
+        self%ub = ubound(self%x%m_data)
+
+        print*, "Grid Resolution of x, y, z:", self%m_resolution
+        print*, "      Grid Size of x, y, z:", self%ub - self%lb + 1
 
         print *, "Calculating ghost points..."
         call calculate_ghost_points(self)
@@ -220,18 +226,19 @@ contains
 
         print *, "Calculating Cell metrics..."
         associate (x => self%x, y => self%y, z => self%z)
-            self%m_metrics = CellMetricData3(x, y, z, resolution)
+            self%m_metrics = CellMetricData3D(x, y, z, resolution)
         end associate
         print *, "Cell metrics calculation done..."
 
         print *, "Allocating flow field memories..."
 
-        self%m_primitives = init_prim3d_data(cond, self%x, resolution)
-        self%m_conservatives = init_consrv3d_data(cond, self%x, resolution)
+        self%m_primitives = PrimitiveData3D(cond, self%x, resolution, n_spc)
+        self%m_conservatives = ConservedData3D(cond, self%x, resolution)
 
         print *, "Flow field allocation done..."
 
         print *, "Initializing flow field..."
+
         print *, "Flow field initialized"
 
         print *, "FCGrid3D initialized..."

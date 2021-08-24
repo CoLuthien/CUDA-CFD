@@ -34,7 +34,7 @@ program testSaxpy
     res= [nx, ny, nz]
 
     ! read from file
-    allocate (x(0:nx + 2, 0:ny+2, 0:nz+2))
+    allocate (x(0:nx + 1, 0:ny+1, 0:nz+1))
     allocate (y, z, source=x)
     x(1:9, 1:9, 1:9) = 2
     y = x
@@ -54,13 +54,13 @@ program testSaxpy
     fluid_solver%m_chemistry = chemsolver
 
     fluid_solver%m_diffusion = DiffusionLegacy(n_spc)
-    fluid_solver%m_grid = FCGrid3(x, y, z, res, n_spc, cond)
+    fluid_solver%m_grid = FCGrid3D(x, y, z, res, n_spc, cond)
 
 
 
     call fluid_solver%check_allocation()
-    print*, size(fluid_solver%m_chemistry%spcs)
-    do i=1, 100
+    print*, size(fluid_solver%m_chemistry%spcs), lbound(fluid_solver%m_grid%m_primitives%rho%m_data)
+    do i=1, 10
         start = omp_get_wtime()
         call fluid_solver%solve()
         fin = omp_get_wtime()
