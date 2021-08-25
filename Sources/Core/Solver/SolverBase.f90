@@ -38,15 +38,9 @@ contains
         nx = m_grid%m_metrics%m_resolution(1)
         ny = m_grid%m_metrics%m_resolution(2)
         nz = m_grid%m_metrics%m_resolution(3)
-        print*, nx, ny, nz
-        !do i=1,nx
-        !    do j=1,ny
-        !        do k=1,nz
         do concurrent(i=1:nx, j=1:ny, k=1:nz)
             call self%m_diffusion%solve_diffusion_point(m_grid%m_primitives, m_grid%m_conservatives, m_grid%m_metrics, spcs, i, j, k)
         end do 
-        !end do 
-        !end do 
         end associate
         !call self%m_advection%solve_advection
 
