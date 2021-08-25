@@ -5,8 +5,8 @@ module Vector
     type :: IntVect3
         integer :: x, y, z
     end type IntVect3
-
-    type :: Vector3 ! Cartesian Vector type
+    !Cartesian Vector type
+    type :: Vector3 
         real(real64) :: x = 0., &
                         y = 0., &
                         z = 0.
@@ -152,6 +152,7 @@ contains
     end function iscalar_vec_div
 
     pure elemental function vec_vec_add(vec1, vec2) result(add)
+        !$omp declare simd(vec_vec_add) uniform(vec1, vec2)
         type(Vector3), intent(in) :: vec1, vec2
         type(Vector3) :: add
         add%x = vec1%x + vec2%x
@@ -178,6 +179,7 @@ contains
     end function iscalar_vec_add
 
     pure elemental function vec_vec_sub(vec1, vec2) result(add)
+        !$omp declare simd(vec_vec_sub) uniform(vec1, vec2)
         type(Vector3), intent(in) :: vec1, vec2
         type(Vector3) :: add
         add%x = vec1%x - vec2%x
@@ -204,6 +206,7 @@ contains
     end function iscalar_vec_sub
 
     pure elemental function dotproduct(vec1, vec2) result(dot)
+        !$omp declare simd(dotproduct) uniform(vec1, vec2)
         type(Vector3), intent(in) :: vec1, vec2
         real(real64) :: dot
         dot = vec1%x * vec2%x + &
@@ -213,6 +216,7 @@ contains
 
     !DIR$ ATTRIBUTES INLINE :: crossproduct
     pure elemental function crossproduct(vec1, vec2) result(cross)
+        !$omp declare simd(crossproduct) uniform(vec1, vec2)
         type(Vector3), intent(in) :: vec1, vec2
         type(Vector3) :: cross
         cross%x = (vec1%y * vec2%z) - (vec1%z * vec2%y)

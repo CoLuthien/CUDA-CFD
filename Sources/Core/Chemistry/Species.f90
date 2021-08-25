@@ -128,14 +128,14 @@ contains
 
     subroutine set_spc_data(self, n_spc)
         class(Specie), intent(inout) :: self
-        integer, intent(in):: n_spc
+        integer, intent(in) :: n_spc
 
         allocate (self%f1(n_spc), self%f2(n_spc), self%diff_coef(n_spc), self%teab(n_spc))
     end subroutine
 
     subroutine init_spc_derived_data(self, spcs, ref_state)
         class(Specie) :: self
-        class(Specie), intent(in)::  spcs(:)
+        class(Specie), intent(in) :: spcs(:)
         type(ReferenceState), intent(in) :: ref_state
         call self%calc_mixture_viscosity_scale_coef(spcs)
         call self%calc_mixture_diffusion_coef(spcs, ref_state)

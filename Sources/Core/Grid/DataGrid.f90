@@ -23,6 +23,7 @@ module DataGrid
     type :: CellMetricData3D
         integer :: m_resolution(3)
         ! all member only used in calculation domain
+        class(Array3), allocatable :: aj
         class(Array3), allocatable :: sx, sy, sz
         class(Array3), allocatable :: ex, ey, ez
         class(Array3), allocatable :: cx, cy, cz
@@ -63,10 +64,10 @@ contains
             self%sxc, self%syc, self%szc, &
             self%exc, self%eyc, self%ezc, &
             self%cxc, self%cyc, self%czc, &
-            self%dely, &
+            self%dely, self%aj, &
             source=self%sx)
 
-        do concurrent(i=1:resolution(1), j=1:resolution(2), k=1:resolution(3)) !local(a, b, c, d, e, f, g, h)
+        do concurrent(i=1:resolution(1), j=1:resolution(2), k=1:resolution(3)) local(a, b, c, d, e, f, g, h)
             block
                 real(real64) :: xaa, xbb, xcc, xdd, xee, xff, xgg, xhh, &
                                 yaa, ybb, ycc, ydd, yee, yff, ygg, yhh, &
@@ -93,7 +94,8 @@ contains
             v4 = (((d - h) .cross. (g - h))) .dot. (f - h) / 6.d0
             v5 = (((a - d) .cross. (g - d))) .dot. (f - d) / 6.d0
             vol = (v1 + v2 + v3 + v4 + v5)
-            !aj(i, j, k) = 1.d0 / vol
+
+            self%aj%m_data(i, j, k) = 1.d0 / vol
 
             !---- 3-D Metric (Finite Difference Approach)
             xi = 0.25d0 * ((b - a) + (d - c) + (f - e) + (h - g)) ! s => same as (s2 - s1) / 1.d0
@@ -211,6 +213,9 @@ contains
         self%rhok = Array4D([lb(:), 1], [ub(:), n_spc])
 
         self%u_momentum = Array3D(lb, ub)
+
+        self%rhok%m_data = 0.d0
+        self%u_momentum%m_data = 0.d0
 
         allocate ( &
             self%v_momentum, self%w_momentum, &
