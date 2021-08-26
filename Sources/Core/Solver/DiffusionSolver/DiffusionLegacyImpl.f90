@@ -37,7 +37,7 @@ contains
         use :: Vector
         class(DiffusionLegacy), intent(in) :: self
         type(Vector3), intent(in) :: du, dv, dw ! gradient representation of physical grid system
-        type(ViscousStress), intent(out) :: stress
+        type(ShearStress), intent(out) :: stress
         real(real64), intent(in) :: turbulent_viscosity
         integer, intent(in) :: i, j, k
         real(real64), parameter :: ort = 1.d0 / 3.d0
@@ -45,6 +45,7 @@ contains
         stress%tau_xx = turbulent_viscosity * (4.d0 * du%x - 2.d0 * dv%y - 2.d0 * dw%z) * ort
         stress%tau_yy = turbulent_viscosity * (4.d0 * dv%y - 2.d0 * dw%z - 2.d0 * du%x) * ort
         stress%tau_zz = turbulent_viscosity * (4.d0 * dw%z - 2.d0 * du%x - 2.d0 * dv%y) * ort
+
         stress%tau_xy = turbulent_viscosity * (du%y + dv%x)
         stress%tau_yz = turbulent_viscosity * (dv%z + dw%y)
         stress%tau_xz = turbulent_viscosity * (dw%x + du%z)
@@ -92,13 +93,13 @@ contains
         ! diffusion flux
         sec_yk = [dyk_ds, dyk_de, dyk_dc]
         !       ! scalar
-        flux_x(1:n_spc) = diff_density(1:n_spc) * (sec_x.dot.sec_yk(1:n_spc))! ruk
-        flux_y(1:n_spc) = diff_density(1:n_spc) * (sec_y.dot.sec_yk(1:n_spc))! rvk
-        flux_z(1:n_spc) = diff_density(1:n_spc) * (sec_z.dot.sec_yk(1:n_spc))! rwk
+        diffused_mass(1:n_spc, 1) = diff_density(1:n_spc) * (sec_x.dot.sec_yk(1:n_spc))! ruk
+        diffused_mass(1:n_spc, 2) = diff_density(1:n_spc) * (sec_y.dot.sec_yk(1:n_spc))! rvk
+        diffused_mass(1:n_spc, 3) = diff_density(1:n_spc) * (sec_z.dot.sec_yk(1:n_spc))! rwk
 
-        diffused_mass(1:n_spc, 1) = flux_x(1:n_spc) !s .dot. flux(1:n_spc) !s%x * flux_s(1:n_spc) + s%y * flux_e(1:n_spc) + s%z * flux_c(1:n_spc)
-        diffused_mass(1:n_spc, 2) = flux_y(1:n_spc) !e .dot. flux(1:n_spc) !e%x * flux_s(1:n_spc) + e%y * flux_e(1:n_spc) + e%z * flux_c(1:n_spc)
-        diffused_mass(1:n_spc, 3) = flux_z(1:n_spc) !c .dot. flux(1:n_spc) !c%x * flux_s(1:n_spc) + c%y * flux_e(1:n_spc) + c%z * flux_c(1:n_spc)
+        != flux_x(1:n_spc) !s .dot. flux(1:n_spc) !s%x * flux_s(1:n_spc) + s%y * flux_e(1:n_spc) + s%z * flux_c(1:n_spc)
+        != flux_y(1:n_spc) !e .dot. flux(1:n_spc) !e%x * flux_s(1:n_spc) + e%y * flux_e(1:n_spc) + e%z * flux_c(1:n_spc)
+        != flux_z(1:n_spc) !c .dot. flux(1:n_spc) !c%x * flux_s(1:n_spc) + c%y * flux_e(1:n_spc) + c%z * flux_c(1:n_spc)
 
     end subroutine
 

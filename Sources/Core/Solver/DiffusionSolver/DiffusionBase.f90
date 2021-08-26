@@ -15,6 +15,7 @@ module DiffusionBase
         class(TransportProperty), allocatable :: m_transport
     contains
         procedure, pass :: solve_diffusion_point
+        procedure, nopass :: calc_residual_RANS => calc_residual_RANS_base_impl
         procedure, nopass :: velocity_gradient => calc_velocity_gradient
         procedure, nopass :: temperature_gradient => calc_temperature_gradient
         procedure, nopass :: turbulent_gradient => calc_turbulent_gradient
@@ -22,7 +23,7 @@ module DiffusionBase
         procedure(calc_viscous_stress), pass, deferred :: viscous_stress
     end type DiffusionSolver
 
-    type :: ViscousStress
+    type :: ShearStress
         real(real64) :: tau_xx, tau_yy, tau_zz, tau_xz, tau_xy, tau_yz
     end type
 
@@ -59,12 +60,12 @@ module DiffusionBase
         pure subroutine calc_viscous_stress(self, du, dv, dw, turbulent_viscosity, i, j, k, stress)
             use :: ArrayBase
             use :: DataGrid
-            import DiffusionSolver, ViscousStress
+            import DiffusionSolver, ShearStress
             implicit none
             class(DiffusionSolver), intent(in) :: self
             type(Vector3), intent(in) :: du, dv, dw
             real(real64), intent(in) :: turbulent_viscosity
-            type(ViscousStress), intent(out) :: stress
+            type(ShearStress), intent(out) :: stress
             integer, intent(in) :: i, j, k
         end subroutine
 
@@ -174,6 +175,39 @@ contains
 
     end subroutine
 
+    pure subroutine calc_residual_RANS_base_impl(metrics, residual, mass, shear_stress, viscous_work, i, j, k, n_spc)
+        class(CellMetricData3D), intent(in) :: metrics
+        class(ConservedData3D), intent(inout) :: residual
+        type(Vector3), intent(in) :: mass(n_spc), viscous_work
+        type(ShearStress), intent(in) :: shear_stress
+        integer, intent(in) :: n_spc, i, j, k
+        type(Vector3) :: sec_x, sec_y, sec_z ! vector for converting sec system to xyz system
+        type(Vector3) :: xyz_s, xyz_e, xyz_c ! vector for converting xyz system to sec system
+        real(real64), dimension(n_spc) :: diffused_mass_s, diffused_mass_e, diffused_mass_c
+        real(real64) :: volume
+        volume = 1.d0 / metrics%aj%m_data(i, j, k)
+        sec_x = [metrics%sx%m_data(i, j, k), metrics%ex%m_data(i, j, k), metrics%cx%m_data(i, j, k)]
+        sec_y = [metrics%sy%m_data(i, j, k), metrics%ey%m_data(i, j, k), metrics%cy%m_data(i, j, k)]
+        sec_z = [metrics%sz%m_data(i, j, k), metrics%ez%m_data(i, j, k), metrics%cz%m_data(i, j, k)]
+
+        xyz_s = [metrics%sx%m_data(i, j, k), metrics%sy%m_data(i, j, k), metrics%sz%m_data(i, j, k)]
+        xyz_e = [metrics%ex%m_data(i, j, k), metrics%ey%m_data(i, j, k), metrics%ez%m_data(i, j, k)]
+        xyz_c = [metrics%cx%m_data(i, j, k), metrics%cy%m_data(i, j, k), metrics%cz%m_data(i, j, k)]
+
+        diffused_mass_s(1:n_spc) = (xyz_s .dot. mass(1:n_spc)) * volume!& diffused mass for s direction
+        diffused_mass_e(1:n_spc) = (xyz_e .dot. mass(1:n_spc)) * volume!& diffused mass for e direction
+        diffused_mass_c(1:n_spc) = (xyz_c .dot. mass(1:n_spc)) * volume!& diffused mass for c direction
+
+        residual%rhok%m_data(i + 1, j, k, 1:n_spc) = residual%rhok%m_data(i + 1, j, k, 1:n_spc) - diffused_mass_s(1:n_spc)
+        residual%rhok%m_data(i - 1, j, k, 1:n_spc) = residual%rhok%m_data(i - 1, j, k, 1:n_spc) + diffused_mass_s(1:n_spc)
+
+        residual%rhok%m_data(i, j + 1, k, 1:n_spc) = residual%rhok%m_data(i, j + 1, k, 1:n_spc) - diffused_mass_e(1:n_spc)
+        residual%rhok%m_data(i, j - 1, k, 1:n_spc) = residual%rhok%m_data(i, j - 1, k, 1:n_spc) + diffused_mass_e(1:n_spc)
+
+        residual%rhok%m_data(i, j, k + 1, 1:n_spc) = residual%rhok%m_data(i, j, k + 1, 1:n_spc) - diffused_mass_c(1:n_spc)
+        residual%rhok%m_data(i, j, k - 1, 1:n_spc) = residual%rhok%m_data(i, j, k - 1, 1:n_spc) + diffused_mass_c(1:n_spc)
+    end subroutine
+
     pure subroutine solve_diffusion_point(self, prim, residual, metrics, spcs, i, j, k)
         use :: ArrayBase
         use :: SpecieBase, only:Specie
@@ -184,29 +218,19 @@ contains
         class(Specie), intent(in) :: spcs(:)
         real(real64), dimension(size(spcs)) :: diffusion_coefficient, enthalpy
         real(real64), dimension(size(spcs)) :: spcs_density
-        real(real64), dimension(size(spcs)) :: diffused_mass_s, diffused_mass_e, diffused_mass_c
         real(real64) :: viscosity, thermal_conductivity, turbulent_viscosity
         real(real64) :: diffused_energy_x, diffused_energy_y, diffused_energy_z
-        real(real64) :: diffused_momentum_u, diffused_momentum_v, diffused_momentum_w
-        real(real64) :: diffused_mass(size(spcs), 3)
-        real(real64) :: volume, qx, qy, qz
+        real(real64) :: diffused_momentum_s, diffused_momentum_e, diffused_momentum_c
+        real(real64) :: diffused_mass_xyz(size(spcs), 3)
+        real(real64) :: volume, u, v, w, qx, qy, qz
         type(Vector3) :: sec_x, sec_y, sec_z ! vector for converting sec system to xyz system
         type(Vector3) :: xyz_s, xyz_e, xyz_c ! vector for converting xyz system to sec system
-        type(Vector3) :: rhok(size(spcs))
+        type(Vector3) :: diffused_mass(size(spcs)), viscous_work
         type(Vector3) :: du, dv, dw, dtk, dtw, dt ! gradient value in physical grid system, ex) du == [dudx, dudy, dudz]
-        type(Vector) :: tx, ty, tz
-        type(ViscousStress) :: stress
+        type(Vector3) :: tx, ty, tz ! shear stress matrix in order of row 1, 2, 3
+        type(ShearStress) :: stress
         integer, intent(in) :: i, j, k
         integer :: idx, n_spc
-
-        volume = 1.d0 / metrics%aj%m_data(i, j, k)
-        sec_x = [metrics%sx%m_data(i, j, k), metrics%ex%m_data(i, j, k), metrics%cx%m_data(i, j, k)]
-        sec_y = [metrics%sy%m_data(i, j, k), metrics%ey%m_data(i, j, k), metrics%cy%m_data(i, j, k)]
-        sec_z = [metrics%sz%m_data(i, j, k), metrics%ez%m_data(i, j, k), metrics%cz%m_data(i, j, k)]
-
-        xyz_s = [metrics%sx%m_data(i, j, k), metrics%sy%m_data(i, j, k), metrics%sz%m_data(i, j, k)]
-        xyz_e = [metrics%ex%m_data(i, j, k), metrics%ey%m_data(i, j, k), metrics%ez%m_data(i, j, k)]
-        xyz_c = [metrics%cx%m_data(i, j, k), metrics%cy%m_data(i, j, k), metrics%cz%m_data(i, j, k)]
 
         n_spc = size(spcs)
         idx = merge(1, 2, prim%t%m_data(i, j, k) >= self%state_nd%ref_temperature)
@@ -215,44 +239,38 @@ contains
         call self%m_transport%transport(spcs, prim%rhok%m_data(i, j, k, 1:n_spc), prim%t%m_data(i, j, k) &
                                         , prim%p%m_data(i, j, k), prim%rho%m_data(i, j, k), prim%tv%m_data(i, j, k) &
                                         , viscosity, turbulent_viscosity, thermal_conductivity, diffusion_coefficient)
-
-        ! calculate diffusion of mass for physical direction (x, y, z)
-        call self%diffusive_mass(metrics, diffusion_coefficient, prim%rhok, prim%rho, n_spc, i, j, k, diffused_mass)
-
-        rhok(1:n_spc) = [diffused_mass(:, 1), diffused_mass(:, 2), diffused_mass(:, 3)]
-
-        diffused_energy_x = sum(enthalpy(1:n_spc) * diffused_mass(1:n_spc, 1)) ! x dir
-        diffused_energy_y = sum(enthalpy(1:n_spc) * diffused_mass(1:n_spc, 2)) ! y dir
-        diffused_energy_z = sum(enthalpy(1:n_spc) * diffused_mass(1:n_spc, 3)) ! z dir
-
-        diffused_mass_s(1:n_spc) = (xyz_s.dot.rhok(1:n_spc)) * volume! diffused mass for s direction
-        diffused_mass_e(1:n_spc) = (xyz_e.dot.rhok(1:n_spc)) * volume! diffused mass for s direction
-        diffused_mass_c(1:n_spc) = (xyz_c.dot.rhok(1:n_spc)) * volume! diffused mass for s direction
-
-        ! for now, we are using global residuals..
-        residual%rhok%m_data(i + 1, j, k, 1:n_spc) = residual%rhok%m_data(i + 1, j, k, 1:n_spc) - diffused_mass_s(1:n_spc)
-        residual%rhok%m_data(i - 1, j, k, 1:n_spc) = residual%rhok%m_data(i - 1, j, k, 1:n_spc) + diffused_mass_s(1:n_spc)
-
-        residual%rhok%m_data(i, j + 1, k, 1:n_spc) = residual%rhok%m_data(i, j + 1, k, 1:n_spc) - diffused_mass_e(1:n_spc)
-        residual%rhok%m_data(i, j - 1, k, 1:n_spc) = residual%rhok%m_data(i, j - 1, k, 1:n_spc) + diffused_mass_e(1:n_spc)
-
-        residual%rhok%m_data(i, j, k + 1, 1:n_spc) = residual%rhok%m_data(i, j, k + 1, 1:n_spc) - diffused_mass_c(1:n_spc)
-        residual%rhok%m_data(i, j, k - 1, 1:n_spc) = residual%rhok%m_data(i, j, k - 1, 1:n_spc) + diffused_mass_c(1:n_spc)
-
-        call self%velocity_gradient(metrics, prim%u, prim%v, prim%w, i, j, k, du, dv, dw)
-        call self%temperature_gradient(metrics, prim%t, i, j, k, dt)
-        call self%turbulent_gradient(metrics, prim%tk, prim%tw, i, j, k, dtk, dtw)
-
-        call self%viscous_stress(du, dv, dw, turbulent_viscosity, i, j, k, stress)
-
-        qx = -thermal_conductivity * dt%x + diffused_energy_x
-        qy = -thermal_conductivity * dt%y + diffused_energy_y
-        qz = -thermal_conductivity * dt%z + diffused_energy_z
         
+        ! calculate diffusion of mass for physical direction (x, y, z)
+        !call self%diffusive_mass(metrics, diffusion_coefficient, prim%rhok, prim%rho, n_spc, i, j, k, diffused_mass_xyz)
 
-        diffused_momentum_s = xyz_s%x * stress%tau_xx + xyz_s * stress%tau_xy + xyz_s * stress%tau_xz
-        diffused_momentum_e = xyz_s%x * stress%tau_xy + xyz_e * stress%tau_yy + xyz_s * stress%tau_xz
-        diffused_momentum_c = xyz_s%x * stress%tau_xz + xyz_c * stress%tau_xy + xyz_s * stress%tau_xz
+        !diffused_mass(1:n_spc) = [diffused_mass_xyz(:, 1), diffused_mass_xyz(:, 2), diffused_mass_xyz(:, 3)]
+
+        !call self%velocity_gradient(metrics, prim%u, prim%v, prim%w, i, j, k, du, dv, dw)
+        !call self%temperature_gradient(metrics, prim%t, i, j, k, dt)
+        !call self%turbulent_gradient(metrics, prim%tk, prim%tw, i, j, k, dtk, dtw)
+        !call self%viscous_stress(du, dv, dw, turbulent_viscosity, i, j, k, stress)
+
+        !! todo : hide calculation of q_dot
+
+        !u = prim%u%m_data(i, j, k)
+        !v = prim%v%m_data(i, j, k)
+        !w = prim%w%m_data(i, j, k)
+        !diffused_energy_x = sum(enthalpy(1:n_spc) * diffused_mass(1:n_spc)%x)  ! diffuesed energy of each species in x dir
+        !diffused_energy_y = sum(enthalpy(1:n_spc) * diffused_mass(1:n_spc)%y)  ! diffuesed energy of each species in y dir
+        !diffused_energy_z = sum(enthalpy(1:n_spc) * diffused_mass(1:n_spc)%z)  ! diffuesed energy of each species in z dir
+
+        !qx = -thermal_conductivity * dt%x + diffused_energy_x
+        !qy = -thermal_conductivity * dt%y + diffused_energy_y
+        !qz = -thermal_conductivity * dt%z + diffused_energy_z
+
+        !viscous_work%x = (u * stress%tau_xx + v * stress%tau_xy + w * stress%tau_xz) - qx
+        !viscous_work%y = (u * stress%tau_xy + v * stress%tau_yy + w * stress%tau_yz) - qy
+        !viscous_work%z = (u * stress%tau_xz + v * stress%tau_yz + w * stress%tau_zz) - qz
+        !! end todo
+
+        !call self%calc_residual_RANS(metrics, residual, diffused_mass, stress, viscous_work, i, j, k, n_spc)
+
+        !! calculating residuals..! for now, we are using global residuals..
 
     end subroutine
 
