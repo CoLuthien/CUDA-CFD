@@ -74,6 +74,7 @@ contains
         sec_x = [metrics%sx%m_data(i, j, k), metrics%ex%m_data(i, j, k), metrics%cx%m_data(i, j, k)]
         sec_y = [metrics%sy%m_data(i, j, k), metrics%ey%m_data(i, j, k), metrics%cy%m_data(i, j, k)]
         sec_z = [metrics%sz%m_data(i, j, k), metrics%ez%m_data(i, j, k), metrics%cz%m_data(i, j, k)]
+
         bottom(1:n_spc) = spcs_density%m_data(i, j, k - 1, 1:n_spc) / density%m_data(i, j, k - 1)
         top(1:n_spc) = spcs_density%m_data(i, j, k + 1, 1:n_spc) / density%m_data(i, j, k + 1)!&
 
@@ -97,9 +98,6 @@ contains
         diffused_mass(1:n_spc, 2) = diff_density(1:n_spc) * (sec_y.dot.sec_yk(1:n_spc))! rvk
         diffused_mass(1:n_spc, 3) = diff_density(1:n_spc) * (sec_z.dot.sec_yk(1:n_spc))! rwk
 
-        != flux_x(1:n_spc) !s .dot. flux(1:n_spc) !s%x * flux_s(1:n_spc) + s%y * flux_e(1:n_spc) + s%z * flux_c(1:n_spc)
-        != flux_y(1:n_spc) !e .dot. flux(1:n_spc) !e%x * flux_s(1:n_spc) + e%y * flux_e(1:n_spc) + e%z * flux_c(1:n_spc)
-        != flux_z(1:n_spc) !c .dot. flux(1:n_spc) !c%x * flux_s(1:n_spc) + c%y * flux_e(1:n_spc) + c%z * flux_c(1:n_spc)
 
     end subroutine
 
