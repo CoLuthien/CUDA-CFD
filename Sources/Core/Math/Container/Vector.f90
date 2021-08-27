@@ -58,15 +58,23 @@ module Vector
         module procedure assign_3p
     end interface assignment(=)
 
-    ! interface size
-    !     module procedure magnitude
-    ! end interface size
+    interface size
+        module procedure magnitude
+    end interface size
 
     interface Vector3
         procedure :: assign_3pt
     end interface
 
 contains
+
+    pure elemental function curl(du, dv, dw) result(val)
+        type(Vector3), intent(in) :: du, dv, dw
+        type(Vector3) :: val
+        val%x = (dw%y - dv%z)
+        val%y = (du%z - dw%x)
+        val%z = (dv%x - du%y)
+    end function
 
     pure elemental function magnitude(self) result(m)
         type(Vector3), intent(in) :: self
