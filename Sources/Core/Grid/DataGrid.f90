@@ -17,7 +17,7 @@ module DataGrid
         class(Array4), allocatable :: rhok
         class(Array3), allocatable :: u_momentum, v_momentum, w_momentum
         class(Array3), allocatable :: e
-        class(Array3), allocatable :: tk, tw
+        class(Array3), allocatable :: tk, tw, tv
     end type
 
     type :: CellMetricData3D
@@ -220,7 +220,7 @@ contains
         allocate ( &
             self%v_momentum, self%w_momentum, &
             self%e, &
-            self%tk, self%tw, &
+            self%tk, self%tw, self%tv, &
             source=self%u_momentum)
     end function
 

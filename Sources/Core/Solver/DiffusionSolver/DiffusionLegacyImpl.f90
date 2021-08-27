@@ -78,7 +78,7 @@ contains
         tv_arg3 = tv_arg1 + tv_arg2 - 2.d0 * tv_arg1 * tv_arg2 / (tv_arg1 + tv_arg2)
         tv_kinematic = kw_a1 * tk / tv_arg3
         tv_dynamic = tv_kinematic * density
-        property%SST%turbulent_viscosity = tv_dynamic * Re_inf_mach1
+        property%SST%eddy_viscosity = tv_dynamic * Re_inf_mach1
 
         ! Calculate SST constants
         sst_gamma = f1 * kw_gamma1 + (1 - f1) * kw_gamma2
@@ -87,7 +87,7 @@ contains
         sst_beta = f1 * kw_beta1 + (1 - f1) * kw_beta2
 
         !calculate basic component of shear stress
-        call self%viscous_stress(du, dv, dw, property%SST%turbulent_viscosity, reynolds_stress)
+        call self%viscous_stress(du, dv, dw, property%SST%eddy_viscosity, reynolds_stress)
         ! Correct with (2/3) * rho * tk
         correction = (2.d0 / 3.d0) * density * tk
         tau_xx = reynolds_stress%tau_xx - correction
@@ -114,8 +114,10 @@ contains
             property%SST%tk_source = (tk_production - kw_beta_star * tw * density * tk * f_des) * volume
             property%SST%tk_source = volume * &
                                      (sst_gamma / tv_kinematic * tk_production - sst_beta * density * tw * tw + (1.d0 - f1) * cd_t)
-
         end block
+        property%SST%sst_sigma_k = sst_sigma_k
+        property%SST%sst_sigma_w = sst_sigma_w
+        property%SST%viscosity = viscosity
     end subroutine
 
     ! todo: refine init diffusion
@@ -282,7 +284,7 @@ contains
         type(Vector3) :: diffused_mass(size(spcs)), viscous_work
         type(Vector3) :: du, dv, dw, dtk, dtw, dt ! gradient value in physical grid system, ex) du == [dudx, dudy, dudz]
         type(ShearStress) :: stress
-        type(TurbulentProperty) :: turb_prop
+        type(TurbulentProperty) :: sst_prop
         integer, intent(in) :: i, j, k
         integer :: idx, n_spc
 
@@ -325,7 +327,6 @@ contains
         ! end todo
 
         ! calculating non-turbulent residuals..! for now, we are using global residuals..
-        call self%calc_residual_RANS(metrics, residual, diffused_mass, stress, viscous_work, i, j, k, n_spc)
         volume = 1.d0 / metrics%aj%m_data(i, j, k)
         dxx = volume * (metrics%ey%m_data(i, j, k) * metrics%cz%m_data(i, j, k) &
                         - metrics%ez%m_data(i, j, k) * metrics%cy%m_data(i, j, k))
@@ -339,7 +340,13 @@ contains
         wall_distance = max(dxx, dyy, dzz)
 
         call self%turbulent_property(metrics%dely%m_data(i, j, k), viscosity, density, tk, tw, wall_distance, volume &
-                                     , dtk, dtw, du, dv, dw, turb_prop)
+                                     , dtk, dtw, du, dv, dw, sst_prop)
+
+        call self%calc_residual(metrics, residual, diffused_mass, stress, viscous_work, dtk, dtw, sst_prop, i, j, k, n_spc)
+
+        ! update tv
+        residual%tv%m_data(i, j, k) = sst_prop%SST%eddy_viscosity
+
 
     end subroutine
 
