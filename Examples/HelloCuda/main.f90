@@ -22,7 +22,8 @@ program testSaxpy
     type(Solver) :: fluid_solver
     type(InitialCondition) :: cond
     class(CustomChem), allocatable :: chemsolver
-    class(DiffusionLegacy), ALLOCATABLE :: diff_solver
+    class(DiffusionLegacy), allocatable :: diff_solver
+    type(Array3), allocatable :: array(:)
     type(ReferenceState) :: state
     integer :: res(3), i
     integer, parameter :: nx=32*2, ny=17 * 2, nz=27 * 2
@@ -54,6 +55,8 @@ program testSaxpy
 
     fluid_solver%m_diffusion = DiffusionLegacy(n_spc)
     fluid_solver%m_grid = FCGrid3D(x, y, z, res, n_spc, cond)
+
+
 
 
 

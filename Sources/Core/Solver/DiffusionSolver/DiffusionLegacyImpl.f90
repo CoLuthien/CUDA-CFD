@@ -15,10 +15,6 @@ module DiffusionImpl
         procedure:: viscous_stress => viscous_stress_impl
     end type DiffusionLegacy
 
-    type, extends(TransportProperty) :: TransportLegacy
-    contains
-        procedure :: transport => transport_impl
-    end type TransportLegacy
 
     interface DiffusionLegacy
         module procedure :: init_diffusion_legacy
@@ -27,16 +23,6 @@ module DiffusionImpl
 contains
 
     ! please refer https://doi.org/10.2514/3.12149
-!    pure subroutine calc_turbulent_property_impl(self &
-!                                                 , y_metric, viscosity, density &
-!                                                 , tk, tw, wall_distance, volume &
-!                                                 , dtk, dtw, du, dv, dw, property)
-!        use :: Constants
-!        class(DiffusionLegacy), intent(in) :: self
-!        real(real64), intent(in) :: y_metric, viscosity, density, tk, tw, wall_distance, volume
-!        type(Vector3), intent(in) :: dtk, dtw, du, dv, dw
-!        type(TurbulentProperty), intent(out) :: property
-!
     pure subroutine calc_turbulent_property_impl(self &
                                                  , y_metric, viscosity, density &
                                                  , tk, tw, wall_distance, volume &
@@ -124,9 +110,7 @@ contains
     function init_diffusion_legacy(n_spc) result(solver)
         integer :: n_spc
         type(DiffusionLegacy) :: solver
-        type(TransportLegacy) :: prop
 
-        solver%m_transport = prop
     end function
 
     pure subroutine viscous_stress_impl(self, du, dv, dw, turbulent_viscosity, stress)
@@ -153,7 +137,7 @@ contains
         use :: ArrayBase
         class(DiffusionLegacy), intent(in) :: self
         class(CellMetricData3D), intent(in) :: metrics
-        class(Array4), intent(in) :: spcs_density
+        class(Array3), intent(in) :: spcs_density(n_spc)
         class(Array3), intent(in) :: density
         real(real64), intent(in) :: diffusion_coef(n_spc)
         integer, intent(in) :: n_spc, i, j, k
@@ -163,22 +147,20 @@ contains
         real(real64), dimension(n_spc) :: dyk_ds, dyk_de, dyk_dc ! differenciated value for each computation grid direction
         real(real64), dimension(n_spc) :: diff_density
         real(real64), dimension(n_spc) :: flux_x, flux_y, flux_z
-        real(real64), intent(out) :: diffused_mass(n_spc, 3) ! final result of calculated mass diffusion
+        type(Vector3), intent(out) :: diffused_mass(n_spc) ! final result of calculated mass diffusion
         type(Vector3) :: sec_yk(n_spc), flux(n_spc)
         integer :: idx
 
-        sec_x = [metrics%sx%m_data(i, j, k), metrics%ex%m_data(i, j, k), metrics%cx%m_data(i, j, k)]
-        sec_y = [metrics%sy%m_data(i, j, k), metrics%ey%m_data(i, j, k), metrics%cy%m_data(i, j, k)]
-        sec_z = [metrics%sz%m_data(i, j, k), metrics%ez%m_data(i, j, k), metrics%cz%m_data(i, j, k)]
+        call metrics%get_sec_2d_metric(i, j, k, sec_x, sec_y, sec_z)
 
-        bottom(1:n_spc) = spcs_density%m_data(i, j, k - 1, 1:n_spc) / density%m_data(i, j, k - 1)
-        top(1:n_spc) = spcs_density%m_data(i, j, k + 1, 1:n_spc) / density%m_data(i, j, k + 1)!&
+        bottom(1:n_spc) = spcs_density(1:n_spc)%m_data(i, j, k - 1) / density%m_data(i, j, k - 1)
+        top(1:n_spc)    = spcs_density(1:n_spc)%m_data(i, j, k + 1) / density%m_data(i, j, k + 1)!&
 
-        right(1:n_spc) = spcs_density%m_data(i, j - 1, k, 1:n_spc) / density%m_data(i, j - 1, k)
-        left(1:n_spc) = spcs_density%m_data(i, j + 1, k, 1:n_spc) / density%m_data(i, j + 1, k)
+        right(1:n_spc)  = spcs_density(1:n_spc)%m_data(i, j - 1, k) / density%m_data(i, j - 1, k)
+        left(1:n_spc)   = spcs_density(1:n_spc)%m_data(i, j + 1, k) / density%m_data(i, j + 1, k)
 
-        front(1:n_spc) = spcs_density%m_data(i - 1, j, k, 1:n_spc) / density%m_data(i - 1, j, k)
-        rear(1:n_spc) = spcs_density%m_data(i + 1, j, k, 1:n_spc) / density%m_data(i + 1, j, k)
+        front(1:n_spc)  = spcs_density(1:n_spc)%m_data(i - 1, j, k) / density%m_data(i - 1, j, k)
+        rear(1:n_spc)   = spcs_density(1:n_spc)%m_data(i + 1, j, k) / density%m_data(i + 1, j, k)
 
         dyk_ds(1:n_spc) = 0.5d0 * (rear - front)
         dyk_de(1:n_spc) = 0.5d0 * (left - right)
@@ -190,126 +172,66 @@ contains
         ! diffusion flux
         sec_yk = [dyk_ds, dyk_de, dyk_dc]
         !       ! scalar
-        diffused_mass(1:n_spc, 1) = diff_density(1:n_spc) * (sec_x.dot.sec_yk(1:n_spc))! ruk
-        diffused_mass(1:n_spc, 2) = diff_density(1:n_spc) * (sec_y.dot.sec_yk(1:n_spc))! rvk
-        diffused_mass(1:n_spc, 3) = diff_density(1:n_spc) * (sec_z.dot.sec_yk(1:n_spc))! rwk
+        diffused_mass(1:n_spc) = [diff_density(1:n_spc) * (sec_x.dot.sec_yk(1:n_spc)), &! ruk
+                                  diff_density(1:n_spc) * (sec_y.dot.sec_yk(1:n_spc)), &! rvk
+                                  diff_density(1:n_spc) * (sec_z.dot.sec_yk(1:n_spc)) ] ! rwk
 
     end subroutine
 
-    ! every data in or out for  this routine, is non-dimensional quantity
-    pure subroutine transport_impl(self, spcs, spcs_density, temperature, pressure, density, eddy_viscosity & ! intent(in)
-                                   , viscosity, turbulent_viscosity, thermal_conductivity, diffusion_coefficient & ! intent(out)
-                                   )
-        use :: Constants, only:prandtl_number, schmidt_number
-        class(TransportLegacy), intent(in) :: self
-        class(Specie), intent(in) :: spcs(:)
-        real(real64), intent(in) :: spcs_density(:)
-        real(real64), intent(in) :: temperature, pressure, density, eddy_viscosity
-        real(real64), intent(out) :: diffusion_coefficient(:)
-        real(real64), intent(out) :: viscosity, thermal_conductivity, turbulent_viscosity
-        real(real64) :: eu, cd, weight, t3p, xsm, total, sum_cmk, cpt, cdt, difft
-        real(real64) :: td(size(spcs)), omg(size(spcs)), df(size(spcs), size(spcs))
-        real(real64), dimension(size(spcs)) :: eu_k, cd_k, c, ratio, cp_k
-        integer :: i, j, k, l, m, n_spc, nx, ny, nz, cnt, idx
-        n_spc = size(spcs)
-        ! loop for calculating laminar property
-        ! this loop quite difficult to understand,
-        ! calculatie mole fraction, non-dimensional
-        c(1:n_spc) = spcs_density(1:n_spc) * spcs(1:n_spc)%molar_weight_nd
-        c(1:n_spc) = c(1:n_spc) / sum(c(1:n_spc))
 
-        eu_k(1:n_spc) = spcs(1:n_spc)%Eu(temperature)! calculate single component, laminar viscosity coeff
-        cd_k(1:n_spc) = spcs(1:n_spc)%Cd(temperature) ! calculate single component, laminar thermal conductivity coeff
-
-        do m = 1, n_spc
-            ratio(1:n_spc) = eu_k(m) / eu_k(1:n_spc) ! get viscosity coeff ratio for this spc
-            weight = spcs(m)%get_scale_factor(ratio(:), c(1:)) ! get weighting factor for this spc
-            xsm = c(m) / weight
-            eu = eu + xsm * eu_k(m)
-            cd = cd + xsm * cd_k(m)
-        end do
-
-        viscosity = eu
-        thermal_conductivity = cd
-
-        c(1:n_spc) = spcs_density(1:n_spc) * spcs(1:n_spc)%molar_weight
-        t3p = sqrt((temperature**3) / (pressure**2))
-        do m = 1, n_spc
-            td(1:n_spc) = temperature * spcs(m)%teab(1:)
-            omg(1:n_spc) = 1.d0 / (td(1:n_spc)**0.145d0) &
-                           + 1.d0 / ((td(1:n_spc) + 0.5d0)**2)
-            df(m, 1:n_spc) = (spcs(m)%diff_coef(1:n_spc) * t3p) / omg(1:n_spc)
-        end do
-
-        !---- Diff. Coef. Correction According to SAND86-8246 by Kee et al.
-        sum_cmk = sum(c(:) * spcs(:)%molar_weight)
-        do m = 1, n_spc
-            total = 0.d0
-            total = sum(c(1:n_spc) / df(m, 1:n_spc))
-            total = total - c(m) / df(m, m)
-            diffusion_coefficient(m) = (sum_cmk - c(m) * spcs(m)%molar_weight) / total
-        end do
-
-        cpt = 0.d0
-
-        idx = check_temp_range(temperature)
-        cp_k(1:n_spc) = spcs(1:n_spc)%Cp_mass(temperature, idx)
-        cpt = sum(cp_k(1:n_spc) * spcs_density(1:n_spc) / density)
-
-        turbulent_viscosity = eu + eddy_viscosity
-        cdt = eddy_viscosity * cpt * (1.d0 / prandtl_number)
-        difft = (eddy_viscosity / density) * (1.d0 / schmidt_number)
-
-        cd = cd + cdt
-
-        diffusion_coefficient(1:n_spc) = diffusion_coefficient(1:) + difft
-
-    end subroutine transport_impl
-
-    pure subroutine solve_diffusion_point_legacy(self, prim, residual, metrics, spcs, i, j, k)
+    pure subroutine solve_diffusion_point_legacy(self, prim, residual, metrics, spcs, i, j, k, n_spc)
         use :: ArrayBase
         use :: SpecieBase, only:Specie
+        use :: LegacyTransport
         class(DiffusionLegacy), intent(in) :: self
         class(CellMetricData3D), intent(in) :: metrics
         class(PrimitiveData3D), intent(in), allocatable :: prim
         class(ConservedData3D), intent(inout) :: residual
         class(Specie), intent(in) :: spcs(:)
+        integer, intent(in) :: i, j, k, n_spc
         real(real64), dimension(size(spcs)) :: diffusion_coefficient, enthalpy
         real(real64), dimension(size(spcs)) :: spcs_density
         real(real64) :: viscosity, thermal_conductivity, turbulent_viscosity
         real(real64) :: diffused_energy_x, diffused_energy_y, diffused_energy_z
-        real(real64) :: diffused_mass_xyz(size(spcs), 3)
-        real(real64) :: volume, u, v, w, qx, qy, qz
+        real(real64) :: volume, u, v, w, qx, qy, qz, temp, tv, turbulent_conductivity
         real(real64) :: rho_tk, rho_tw, density, tk, tw, dxx, dyy, dzz, wall_distance
+        real(real64) :: mole_fraction(n_spc), mass_fraction(n_spc), difft, pressure
         type(Vector3) :: diffused_mass(size(spcs)), viscous_work
         type(Vector3) :: du, dv, dw, dtk, dtw, dt ! gradient value in physical grid system, ex) du == [dudx, dudy, dudz]
         type(ShearStress) :: stress
         type(TurbulentProperty) :: sst_prop
-        integer, intent(in) :: i, j, k
-        integer :: idx, n_spc
+        integer :: idx
 
-        n_spc = size(spcs)
         idx = merge(1, 2, prim%t%m_data(i, j, k) >= self%state_nd%ref_temperature)
         u = prim%u%m_data(i, j, k); density = prim%rho%m_data(i, j, k)
         v = prim%v%m_data(i, j, k); tk = prim%tk%m_data(i, j, k)
         w = prim%w%m_data(i, j, k); tw = prim%tw%m_data(i, j, k)
+        temp = prim%t%m_data(i, j, k); tv = prim%tv%m_data(i, j, k)
+        pressure = prim%p%m_data(i, j, k)
 
 
         enthalpy(1:n_spc) = spcs(:)%H_mass(prim%t%m_data(i, j, k), idx)
 
-        call self%m_transport%transport(spcs, prim%rhok%m_data(i, j, k, 1:n_spc), prim%t%m_data(i, j, k) &
-                                        , prim%p%m_data(i, j, k), prim%rho%m_data(i, j, k), prim%tv%m_data(i, j, k) &
-                                        , viscosity, turbulent_viscosity, thermal_conductivity, diffusion_coefficient)
+        mole_fraction(1:n_spc) = spcs(1:n_spc)%get_molar_concentration(spcs_density(1:n_spc)) !spcs_density(1:n_spc) * spcs(1:n_spc)%molar_weight_nd
+        mole_fraction(1:n_spc) = mole_fraction(1:n_spc) / sum(mole_fraction(1:n_spc))
+        mass_fraction(1:n_spc) = mole_fraction(1:n_spc) * spcs(1:n_spc)%molar_weight
+
+        call mixture_properties(spcs, mole_fraction, temp, viscosity, thermal_conductivity, n_spc)
+        call mixture_diffusivity(spcs, mole_fraction, mass_fraction, temp, pressure, diffusion_coefficient, n_spc)
+        call mixture_turbulent_properties(spcs, mole_fraction, mass_fraction, temp, density, tv, turbulent_conductivity, difft, n_spc)
+
+        turbulent_viscosity = viscosity + tv
+        thermal_conductivity = thermal_conductivity + turbulent_conductivity
+        diffusion_coefficient(1:n_spc) = diffusion_coefficient(1:n_spc) + difft
 
         ! calculate diffusion of mass for physical direction (x, y, z)
         call self%velocity_gradient(metrics, prim%u, prim%v, prim%w, i, j, k, du, dv, dw)
         call self%temperature_gradient(metrics, prim%t, i, j, k, dt)
         call self%turbulent_gradient(metrics, prim%tk, prim%tw, i, j, k, dtk, dtw)
 
-        call self%diffusive_mass(metrics, diffusion_coefficient, prim%rhok, prim%rho, n_spc, i, j, k, diffused_mass_xyz)
+        call self%diffusive_mass(metrics, diffusion_coefficient, prim%rhok, prim%rho, n_spc, i, j, k, diffused_mass)
         call self%viscous_stress(du, dv, dw, turbulent_viscosity, stress)
 
-        diffused_mass(1:n_spc) = [diffused_mass_xyz(:, 1), diffused_mass_xyz(:, 2), diffused_mass_xyz(:, 3)]
 
         ! todo : hide calculation of viscous work
         diffused_energy_x = sum(enthalpy(1:n_spc) * diffused_mass(1:n_spc)%x)  ! diffuesed energy of each species in x dir

@@ -26,7 +26,6 @@ module DiffusionBase
         class(TransportProperty), allocatable :: m_transport
     contains
         procedure(solve_diffusion_point_interface), deferred, pass :: solve_diffusion_point
-        procedure(calc_mass_diffusion_interface), pass, deferred :: diffusive_mass
         procedure(calc_viscous_stress_interface), pass, deferred :: viscous_stress
         procedure(calc_turbulent_property_interface), pass, deferred :: turbulent_property
 
@@ -36,6 +35,8 @@ module DiffusionBase
         procedure, nopass :: velocity_gradient => calc_velocity_gradient
         procedure, nopass :: temperature_gradient => calc_temperature_gradient
         procedure, nopass :: turbulent_gradient => calc_turbulent_gradient
+
+        procedure(calc_mass_diffusion_interface), pass, deferred :: diffusive_mass
     end type DiffusionSolver
 
     type :: ShearStress
@@ -74,15 +75,15 @@ module DiffusionBase
                                                       , spcs_density, density, n_spc, i, j, k, diffused_mass)
             use :: ArrayBase
             import DiffusionSolver, real64
-            import CellMetricData3D
+            import CellMetricData3D, Vector3
             implicit none
             class(DiffusionSolver), intent(in) :: self
             class(CellMetricData3D), intent(in) :: metrics
             real(real64), intent(in) :: diffusion_coef(n_spc)
-            class(Array4), intent(in) :: spcs_density
+            class(Array3), intent(in) :: spcs_density(n_spc)
             class(Array3), intent(in) :: density
             integer, intent(in) :: n_spc, i, j, k
-            real(real64), intent(out) :: diffused_mass(n_spc, 3)
+            type(Vector3), intent(out) :: diffused_mass(n_spc)
         end subroutine
 
         pure subroutine calc_viscous_stress_interface(self, du, dv, dw, turbulent_viscosity, stress)
@@ -95,7 +96,7 @@ module DiffusionBase
             real(real64), intent(in) :: turbulent_viscosity
             type(ShearStress), intent(out) :: stress
         end subroutine
-        pure subroutine solve_diffusion_point_interface(self, prim, residual, metrics, spcs, i, j, k)
+        pure subroutine solve_diffusion_point_interface(self, prim, residual, metrics, spcs, i, j, k, n_spc)
             use :: ArrayBase
             use :: GridBase
             use :: SpecieBase, only:Specie
@@ -105,7 +106,7 @@ module DiffusionBase
             class(PrimitiveData3D), intent(in), allocatable :: prim
             class(ConservedData3D), intent(inout) :: residual
             class(Specie), intent(in) :: spcs(:)
-            integer, intent(in) :: i, j, k
+            integer, intent(in) :: i, j, k, n_spc
         end subroutine
     end interface
 
@@ -113,6 +114,7 @@ contains
 
     pure subroutine calc_temperature_gradient(metrics, t, i, j, k, dt)
         use :: ArrayBase, only:Array3
+        use :: DifferenceBase
         class(CellMetricData3D), intent(in) :: metrics
         class(Array3), intent(in) :: t
         type(Vector3), intent(out) :: dt
@@ -122,19 +124,17 @@ contains
         sec_x = [metrics%sx%m_data(i, j, k), metrics%ex%m_data(i, j, k), metrics%cx%m_data(i, j, k)]
         sec_y = [metrics%sy%m_data(i, j, k), metrics%ey%m_data(i, j, k), metrics%cy%m_data(i, j, k)]
         sec_z = [metrics%sz%m_data(i, j, k), metrics%ez%m_data(i, j, k), metrics%cz%m_data(i, j, k)]
-        associate (t => t%m_data)
-            dt_c = 0.5d0*[t(i + 1, j, k) - t(i - 1, j, k), &
-                          t(i, j + 1, k) - t(i, j - 1, k), &
-                          t(i, j, k + 1) - t(i, j, k - 1)]
-        end associate
 
+        dt_c = central_diff_2nd(t, i, j, k)
         dt = [dt_c .dot. sec_x, & !&
               dt_c .dot. sec_y, & !&
               dt_c .dot. sec_z]
 
     end subroutine
+
     pure subroutine calc_turbulent_gradient(metrics, tk, tw, i, j, k, dtk, dtw)
         use :: ArrayBase, only:Array3
+        use :: DifferenceBase
         class(CellMetricData3D), intent(in) :: metrics
         class(Array3), intent(in) :: tk, tw
         type(Vector3), intent(out) :: dtk, dtw
@@ -145,16 +145,8 @@ contains
         sec_y = [metrics%sy%m_data(i, j, k), metrics%ey%m_data(i, j, k), metrics%cy%m_data(i, j, k)]
         sec_z = [metrics%sz%m_data(i, j, k), metrics%ez%m_data(i, j, k), metrics%cz%m_data(i, j, k)]
 
-        associate (tk => tk%m_data, tw => tw%m_data)
-            dtk_c = 0.5d0*[tk(i + 1, j, k) - tk(i - 1, j, k), &
-                           tk(i, j + 1, k) - tk(i, j - 1, k), &
-                           tk(i, j, k + 1) - tk(i, j, k - 1)]
-
-            dtw_c = 0.5d0*[tw(i + 1, j, k) - tw(i - 1, j, k), &
-                           tw(i, j + 1, k) - tw(i, j - 1, k), &
-                           tw(i, j, k + 1) - tw(i, j, k - 1)]
-
-        end associate
+        dtk_c = central_diff_2nd(tk, i, j, k)
+        dtw_c = central_diff_2nd(tw, i, j, k)
 
         dtk = [dtk_c .dot. sec_x, & !&
                dtk_c .dot. sec_y, & !&
@@ -167,6 +159,7 @@ contains
 
     pure subroutine calc_velocity_gradient(metrics, u, v, w, i, j, k, du, dv, dw)
         use :: ArrayBase, only:Array3
+        use :: DifferenceBase
         class(CellMetricData3D), intent(in) :: metrics
         class(Array3), intent(in) :: u, v, w
         type(Vector3), intent(out) :: du, dv, dw
@@ -174,23 +167,11 @@ contains
         type(Vector3) :: sec_x, sec_y, sec_z
         integer, intent(in) :: i, j, k
 
-        sec_x = [metrics%sx%m_data(i, j, k), metrics%ex%m_data(i, j, k), metrics%cx%m_data(i, j, k)]
-        sec_y = [metrics%sy%m_data(i, j, k), metrics%ey%m_data(i, j, k), metrics%cy%m_data(i, j, k)]
-        sec_z = [metrics%sz%m_data(i, j, k), metrics%ez%m_data(i, j, k), metrics%cz%m_data(i, j, k)]
-        associate (u => u%m_data, v => v%m_data, w => w%m_data)
+        call metrics%get_sec_2d_metric(i, j, k, sec_x, sec_y, sec_z)
             !du_ds, du_de, du_dc
-            du_c = 0.5d0*[u(i + 1, j, k) - u(i - 1, j, k), &
-                          u(i, j + 1, k) - u(i, j - 1, k), &
-                          u(i, j, k + 1) - u(i, j, k - 1)]
-
-            dv_c = 0.5d0*[v(i + 1, j, k) - v(i - 1, j, k), &
-                          v(i, j + 1, k) - v(i, j - 1, k), &
-                          v(i, j, k + 1) - v(i, j, k - 1)]
-
-            dw_c = 0.5d0*[w(i + 1, j, k) - w(i - 1, j, k), &
-                          w(i, j + 1, k) - w(i, j - 1, k), &
-                          w(i, j, k + 1) - w(i, j, k - 1)]
-        end associate
+        du_c = central_diff_2nd(u, i, j, k)
+        dv_c = central_diff_2nd(v, i, j, k)
+        dw_c = central_diff_2nd(w, i, j, k)
 
         du = [du_c .dot. sec_x, & !&
               du_c .dot. sec_y, & !&
@@ -262,14 +243,14 @@ contains
         diffused_mass_c(1:n_spc) = (xyz_c .dot. mass(1:n_spc)) * corrected_volume!& diffused mass for c direction
 
         ! diffused mass residual
-        residual%rhok%m_data(i + 1, j, k, 1:n_spc) = residual%rhok%m_data(i + 1, j, k, 1:n_spc) - diffused_mass_s(1:n_spc)
-        residual%rhok%m_data(i - 1, j, k, 1:n_spc) = residual%rhok%m_data(i - 1, j, k, 1:n_spc) + diffused_mass_s(1:n_spc)
-
-        residual%rhok%m_data(i, j + 1, k, 1:n_spc) = residual%rhok%m_data(i, j + 1, k, 1:n_spc) - diffused_mass_e(1:n_spc)
-        residual%rhok%m_data(i, j - 1, k, 1:n_spc) = residual%rhok%m_data(i, j - 1, k, 1:n_spc) + diffused_mass_e(1:n_spc)
-
-        residual%rhok%m_data(i, j, k + 1, 1:n_spc) = residual%rhok%m_data(i, j, k + 1, 1:n_spc) - diffused_mass_c(1:n_spc)
-        residual%rhok%m_data(i, j, k - 1, 1:n_spc) = residual%rhok%m_data(i, j, k - 1, 1:n_spc) + diffused_mass_c(1:n_spc)
+        residual%rhok(1:n_spc)%m_data(i + 1, j, k) = residual%rhok(1:n_spc)%m_data(i + 1, j, k) - diffused_mass_s(1:n_spc)
+        residual%rhok(1:n_spc)%m_data(i - 1, j, k) = residual%rhok(1:n_spc)%m_data(i - 1, j, k) + diffused_mass_s(1:n_spc)
+                                                                   
+        residual%rhok(1:n_spc)%m_data(i, j + 1, k) = residual%rhok(1:n_spc)%m_data(i, j + 1, k) - diffused_mass_e(1:n_spc)
+        residual%rhok(1:n_spc)%m_data(i, j - 1, k) = residual%rhok(1:n_spc)%m_data(i, j - 1, k) + diffused_mass_e(1:n_spc)
+                                                                  
+        residual%rhok(1:n_spc)%m_data(i, j, k + 1) = residual%rhok(1:n_spc)%m_data(i, j, k + 1) - diffused_mass_c(1:n_spc)
+        residual%rhok(1:n_spc)%m_data(i, j, k - 1) = residual%rhok(1:n_spc)%m_data(i, j, k - 1) + diffused_mass_c(1:n_spc)
 
         call self%momentum_residual(residual%u_momentum, corrected_volume, xyz_s, xyz_e, xyz_c, tx, i, j, k)
         call self%momentum_residual(residual%v_momentum, corrected_volume, xyz_s, xyz_e, xyz_c, ty, i, j, k)

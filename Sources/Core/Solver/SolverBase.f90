@@ -5,6 +5,7 @@ module SolverBase
     use :: DiffusionBase
     use :: ChemistryBase
     use :: GridBase
+    use :: LegacyTransport
     implicit none
 
     type :: Solver
@@ -29,17 +30,38 @@ contains
         end if
     end subroutine check_allocation
 
-    subroutine solve(self)
+    subroutine solve(self, n_spc)
         class(Solver), intent(inout) :: self
+        integer, intent(in) :: n_spc
         integer :: i, j, k, nx, ny, nz
+        real(real64), dimension(n_spc) :: diffusion_coefficient, enthalpy
+        real(real64), dimension(n_spc) :: spcs_density, mole_fraction, mass_fraction
 
         ! todo : add things to solve
-        associate (m_grid => self%m_grid, spcs => self%m_chemistry%spcs)
-        nx = m_grid%m_metrics%m_resolution(1)
-        ny = m_grid%m_metrics%m_resolution(2)
-        nz = m_grid%m_metrics%m_resolution(3)
+        associate (grid => self%m_grid, spcs => self%m_chemistry%spcs, prim => self%m_grid%m_primitives, &
+            consrv => grid%m_conservatives, metrics => grid%m_metrics)
+        nx = grid%m_metrics%m_resolution(1)
+        ny = grid%m_metrics%m_resolution(2)
+        nz = grid%m_metrics%m_resolution(3)
+
         do concurrent(i=1:nx, j=1:ny, k=1:nz)
-            call self%m_diffusion%solve_diffusion_point(m_grid%m_primitives, m_grid%m_conservatives, m_grid%m_metrics, spcs, i, j, k)
+            !DIR$ NOUNROLL
+            spcs_density(1:n_spc) = prim%rhok(1:n_spc)%m_data(i, j, k)
+            mole_fraction(1:n_spc) = spcs(1:n_spc)%get_molar_concentration(spcs_density(1:n_spc)) 
+            mole_fraction(1:n_spc) = mole_fraction(1:n_spc) / sum(mole_fraction(1:n_spc))
+            mass_fraction(1:n_spc) = mole_fraction(1:n_spc) * spcs(1:n_spc)%molar_weight
+
+            call mixture_properties(spcs, mole_fraction, temp, viscosity, thermal_conductivity, n_spc)
+            call mixture_diffusivity(spcs, mole_fraction, mass_fraction, temp, pressure,diffusion_coefficient, n_spc)
+            call mixture_turbulent_properties(spcs, mole_fraction, mass_fraction, temp, density, tv, turbulent_conductivity, difft, n_spc)
+
+            turbulent_viscosity = viscosity + tv
+            thermal_conductivity = thermal_conductivity + turbulent_conductivity
+            diffusion_coefficient(1:n_spc) = diffusion_coefficient(1:n_spc) + difft
+
+            !call self%m_diffusion%diffusive_mass(grid%m_metrics, diffusion_coefficient, )
+
+            call self%m_diffusion%solve_diffusion_point(prim, consrv, grid%m_metrics, spcs, i, j, k, 13)
         end do 
         end associate
         !call self%m_advection%solve_advection

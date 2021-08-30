@@ -29,6 +29,8 @@ module SpecieBase
         procedure, pass, private :: calc_mixture_diffusion_coef
         procedure, pass :: get_scale_factor
 
+        procedure, pass ::  get_molar_concentration
+
         procedure :: set_spc_data
         procedure :: init_spc_derived_data
     end type Specie
@@ -84,6 +86,13 @@ module SpecieBase
 
     end interface
 contains
+
+    pure elemental function get_molar_concentration(self, density) result(mole)
+        class(Specie), intent(in) :: self 
+        real(real64), intent(in) :: density
+        real(real64) :: mole
+        mole = self%molar_weight_nd * density
+    end function
 
     pure function check_temp_range(temp) result(idx)
         real(real64), intent(in) :: temp
@@ -167,7 +176,7 @@ contains
     pure function get_scale_factor(self, ratio, mole_fraction) result(weight)
         !$omp declare simd(get_scale_factor) uniform(ratio, mole_fraction)
         class(Specie), intent(in) :: self
-        real(real64), intent(in) :: ratio(1:), mole_fraction(1:)
+        real(real64), intent(in) :: ratio(:), mole_fraction(:)
         real(real64) :: weight
         ! now m_r * rest of term (in eqn 2)
         weight = sum(mole_fraction(1:) &
@@ -175,6 +184,7 @@ contains
     end function
 
     subroutine calc_mixture_diffusion_coef(self, spcs, ref_state)
+        use :: Constants
         class(Specie) :: self
         class(Specie), intent(in) :: spcs(:)
         type(ReferenceState), intent(in) :: ref_state
@@ -185,7 +195,6 @@ contains
         ref_gamma = ref_state%ref_gamma
         ref_temp = ref_state%ref_temperature
         ref_pressure = ref_state%ref_pressure
-        ref_kine_vis = ref_state%ref_kinematic_viscosity
 
         gt1 = ref_gamma * ref_temp
         gp1 = ref_gamma * ref_pressure
@@ -193,13 +202,13 @@ contains
 
         sigma_ab(1:) = 0.5d0 * (self%molar_diam * spcs(:)%molar_diam)
         teab(1:) = gt1 / sqrt(self%char_temp * spcs(1:)%char_temp) ! non-d
+
         dcoef(1:) = 0.0018583d0 &
                     * sqrt(t3p &
                            * ((1.d0 / self%molar_weight) + (1.d0 / spcs(1:)%molar_weight)))
 
         ! now non-d
-        dcoef(1:) = (dcoef(1:) / sigma_ab(1:)) &
-                    / ref_kine_vis
+        dcoef(1:) = (dcoef(1:) / (sigma_ab(1:) ** 2)) / ref_kinematic_viscosity
 
         self%diff_coef(1:) = dcoef(1:)
         self%teab = teab

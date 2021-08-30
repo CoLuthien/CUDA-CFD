@@ -23,16 +23,9 @@ target_include_directories(${target}
 #    ${DEFAULT_PROJECT_OPTIONS}
 #)
 
-# Compile options
-if (CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
-    add_definitions(-D_USE_MATH_DEFINES) # for M_PI
-endif ()
-
 target_compile_options(${target}
     PRIVATE
-
     PUBLIC
-    ${DEFAULT_COMPILE_OPTIONS}
     INTERFACE
 )
 
@@ -45,4 +38,3 @@ target_link_libraries(${target}
     ${DEFAULT_LINKER_OPTIONS}
     )
 
-message(${CMAKE_Fortran_COMPILER_ID})

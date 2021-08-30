@@ -30,10 +30,6 @@ module ArrayBase
         procedure :: move_array4
     end interface
 
-    interface get_data
-        procedure :: get_data3
-    end interface
-
     interface Array3D
         module procedure :: make_array3 ! copy size and allocate same shape
         module procedure :: make_array3_size
@@ -47,7 +43,11 @@ module ArrayBase
         module procedure :: make_array4_bound
     end interface
 
+    interface get_image
+    end interface 
+
 contains
+
 
     pure function make_array2(from) result(to)
         class(Array2), intent(in) :: from

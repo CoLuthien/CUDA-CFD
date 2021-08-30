@@ -8,6 +8,8 @@ module Constants
     real(real64) :: Re_inf_mach1 = 0.d0
     real(real64) :: prandtl_number = 0.9d0, schmidt_number = 0.9d0
 
+    real(real64) :: ref_kinematic_viscosity
+
     ! SST k-omega model constants, 1 for original k-w model, 2 for transformed k-e model 
     real(real64), parameter :: kw_sigma_k1 = .85d0, kw_sigma_w1 = .5d0, &
                                kw_sigma_k2 = 1.d0, kw_sigma_w2 = .856d0, &

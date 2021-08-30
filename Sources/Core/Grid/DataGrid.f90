@@ -6,7 +6,7 @@ module DataGrid
     public
     type :: PrimitiveData3D
         integer :: m_resolution(3)
-        class(Array4), allocatable :: rhok ! density for each spc
+        class(Array3), allocatable :: rhok(:) ! density for each spc
         class(Array3), allocatable :: u, v, w
         class(Array3), allocatable :: e, t, p, a, rho
         class(Array3), allocatable :: tk, tw, tv ! turbulent kinetic energy, dissipation rate, viscosity
@@ -14,7 +14,7 @@ module DataGrid
 
     type :: ConservedData3D
         integer :: m_resolution(3)
-        class(Array4), allocatable :: rhok
+        class(Array3), allocatable :: rhok(:)
         class(Array3), allocatable :: u_momentum, v_momentum, w_momentum
         class(Array3), allocatable :: e
         class(Array3), allocatable :: tk, tw, tv
@@ -31,6 +31,8 @@ module DataGrid
         class(Array3), allocatable :: exc, eyc, ezc
         class(Array3), allocatable :: cxc, cyc, czc, dely
     contains
+        procedure :: get_sec_2d_metric
+        procedure :: get_xyz_2d_metric
     end type
 
     interface CellMetricData3D
@@ -45,6 +47,27 @@ module DataGrid
     end interface
 
 contains
+
+    pure subroutine get_sec_2d_metric(self, i, j, k, sec_x, sec_y, sec_z)
+        class(CellMetricData3D), intent(in) :: self
+        integer, intent(in) :: i, j, k
+        type(Vector3), intent(out) :: sec_x, sec_y, sec_z
+
+        sec_x = [self%sx%m_data(i, j, k), self%ex%m_data(i, j, k), self%cx%m_data(i, j, k)]
+        sec_y = [self%sy%m_data(i, j, k), self%ey%m_data(i, j, k), self%cy%m_data(i, j, k)]
+        sec_z = [self%sz%m_data(i, j, k), self%ez%m_data(i, j, k), self%cz%m_data(i, j, k)]
+        
+    end subroutine
+    pure subroutine get_xyz_2d_metric(self, i, j, k, xyz_s, xyz_e, xyz_c)
+        class(CellMetricData3D), intent(in) :: self
+        integer, intent(in) :: i, j, k
+        type(Vector3), intent(out) :: xyz_s, xyz_e, xyz_c
+
+        xyz_s = [self%sx%m_data(i, j, k), self%sy%m_data(i, j, k), self%sz%m_data(i, j, k)]
+        xyz_e = [self%ex%m_data(i, j, k), self%ey%m_data(i, j, k), self%ez%m_data(i, j, k)]
+        xyz_c = [self%cx%m_data(i, j, k), self%cy%m_data(i, j, k), self%cz%m_data(i, j, k)]
+
+    end subroutine
     function init_cell_metrics(x, y, z, resolution) result(self)
         type(CellMetricData3D) :: self
         class(Array3), intent(in) :: x, y, z ! x y z 's ghost points are already set
@@ -180,16 +203,17 @@ contains
         class(Array3), intent(in) :: geometry_reference
         type(PrimitiveData3D) :: self
         integer, intent(in) :: resolution(3), n_spc
-        integer :: lb(3), ub(3)
+        integer :: lb(3), ub(3), i
 
         self%m_resolution = resolution
 
 
         lb = lbound(geometry_reference%m_data)
         ub = ubound(geometry_reference%m_data)
-
-        self%rhok = Array4D([lb(:), 1], [ub(:), n_spc])
-        print*, "bound:", lbound(self%rhok%m_data), ubound(self%rhok%m_data)
+        allocate(self%rhok(n_spc))
+        do i=1, n_spc
+            self%rhok(i) = Array3D(lb, ub)
+        end do
 
         self%u = Array3D(lb, ub)
 
@@ -206,16 +230,17 @@ contains
         class(Array3), intent(in) :: geometry_reference
         type(ConservedData3D) :: self
         integer, intent(in) :: resolution(3), n_spc
-        integer :: lb(3), ub(3)
+        integer :: lb(3), ub(3), i
         lb = lbound(geometry_reference%m_data)
         ub = ubound(geometry_reference%m_data)
         self%m_resolution = resolution
-        self%rhok = Array4D([lb(:), 1], [ub(:), n_spc])
+
+        allocate(self%rhok(n_spc))
+        do i=1, n_spc
+            self%rhok(i) = Array3D(lb, ub)
+        end do
 
         self%u_momentum = Array3D(lb, ub)
-
-        self%rhok%m_data = 0.d0
-        self%u_momentum%m_data = 0.d0
 
         allocate ( &
             self%v_momentum, self%w_momentum, &
